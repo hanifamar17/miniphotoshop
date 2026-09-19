@@ -11,6 +11,7 @@ add_executable(
     mps_test
     src/main.cpp
     src/ImageIO_PGM.cpp
+    src/ImageIO_PBM.cpp
 )
 
 #modul python via pybind11
@@ -19,5 +20,6 @@ pybind11_add_module(
     mps_engine
     src/bindings.cpp
     src/ImageIO_PGM.cpp
+    src/ImageIO_PBM.cpp
 )
 target_link_options(mps_engine PRIVATE -static-libgcc -static-libstdc++ -static -lwinpthread)
