@@ -23,16 +23,13 @@ namespace mps{
     bool loadPBM(const string& filename, Image& img){
         ifstream fin(filename, ios::binary);
         if(!fin.is_open()){
-            cout<<"DEBUG: Gagal buka file PBM: "<<filename<<endl; //Debug 1
             return false; //file tidak ketemu
         }
 
         //baca magic number (P1/P4)
         string magic;
         fin >> magic;
-        cout<<"DEBUG: Magic number: "<<magic<<endl; //Debug 2
         if(magic != "P1" && magic != "P4"){
-            cout<<"DEBUG: Invalid magic number: "<<magic<<endl; //Debug 3
             return false;
         }
 
@@ -62,7 +59,7 @@ namespace mps{
                 img.data[i]= static_cast<uint8_t>(val);
             }
         }else{
-            
+            // binary: baca byte-byte, tiap bit mewakili satu pixel
             int bytesPerRow= (width + 7) / 8; //jumlah byte per baris
             for(int row = 0; row < height; row++){
                 for(int byteIdx = 0; byteIdx < bytesPerRow; byteIdx++){
