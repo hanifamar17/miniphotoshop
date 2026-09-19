@@ -1,0 +1,39 @@
+# Build artifacts C++
+engine/build/
+*.obj
+*.o
+*.exe
+*.pyd
+*.dll
+*.a
+*.lib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+gui/__pycache__/
+gui/components/__pycache__/
+venv/
+.venv/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Output test citra (opsional, kalau gak mau commit file hasil generate)
+*.pgm
+!tests/*.pgm
+
+# Log
+*.log
