@@ -41,6 +41,16 @@ PYBIND11_MODULE(mps_engine, m) {
     m.def("save_pgm", &savePGM, "Simpan citra ke file PGM",
           py::arg("filename"), py::arg("img"), py::arg("binary") = true);
 
+    //PPM
+    m.def("load_ppm", [](const string& filename) {
+        Image img;
+        bool ok = loadPPM(filename, img);
+        return py::make_tuple(ok, img);
+    }, "Load citra PPM. Return (success, Image)");
+
+    m.def("save_ppm", &savePPM, "Simpan citra ke file PPM",
+          py::arg("filename"), py::arg("img"), py::arg("binary") = true);
+
     //PBM
     m.def("load_pbm", [](const string& filename) {
         Image img;
