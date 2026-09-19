@@ -3,6 +3,7 @@
 #include <sstream>
 #include <filesystem>
 #include <iostream>
+#include <new>
 using namespace std;
 
 namespace mps{
@@ -47,7 +48,11 @@ namespace mps{
             return false;
         }
 
-        img.allocate(width, height, 1); //PGM dengan ch=1
+        try{
+            img.allocate(width, height, 1); //PGM dengan ch=1
+        }catch(const bad_alloc&){
+            return false;
+        }
 
         if(magic == "P5"){
             fin.read(reinterpret_cast<char*>(img.data.data()), img.data.size());

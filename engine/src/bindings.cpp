@@ -30,7 +30,8 @@ PYBIND11_MODULE(mps_engine, m) {
                 );
             }
         });
-
+    
+    //PGM
     m.def("load_pgm", [](const string& filename) {
         Image img;
         bool ok = loadPGM(filename, img);
@@ -38,5 +39,15 @@ PYBIND11_MODULE(mps_engine, m) {
     }, "Load citra PGM. Return (success, Image)");
 
     m.def("save_pgm", &savePGM, "Simpan citra ke file PGM",
+          py::arg("filename"), py::arg("img"), py::arg("binary") = true);
+
+    //PBM
+    m.def("load_pbm", [](const string& filename) {
+        Image img;
+        bool ok = loadPBM(filename, img);
+        return py::make_tuple(ok, img);
+    }, "Load citra PBM. Return (success, Image)");
+
+    m.def("save_pbm", &savePBM, "Simpan citra ke file PBM",
           py::arg("filename"), py::arg("img"), py::arg("binary") = true);
 }

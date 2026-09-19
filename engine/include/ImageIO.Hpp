@@ -2,12 +2,16 @@
 # include "Image.Hpp"
 
 namespace mps{
-    // baca citra PGM
+    //PGM (Portable Gray Map) format
     bool loadPGM(const string& filename, Image& img);
-
-    //save image PGM
     bool savePGM(const string& filename, const Image& img, bool binary= true);
+    
 
-    //info citra
+    //PBM
+    bool loadPBM(const string& filename, Image& img);
+    bool savePBM(const string& filename, const Image& img, bool binary= true);
+
+
+    //info
     void printImageInfo(const string& filename, const Image& img);
 }
