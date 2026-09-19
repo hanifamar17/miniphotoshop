@@ -53,7 +53,13 @@ class MiniPhotoshopApp:
     def open_file(self):
         filename = filedialog.askopenfilename(
             title="Buka Arsip Citra",
-            filetypes=[("PGM files", "*.pgm"), ("All files", "*.*")]
+           filetypes=[
+            ("PGM files", "*.pgm"),
+            ("PBM files", "*.pbm"),
+            ("PPM files", "*.ppm"),
+            ("All supported", "*.pgm *.pbm *.ppm"),
+            ("All files", ".")
+        ]
         )
         if not filename:
             return  # user cancel
