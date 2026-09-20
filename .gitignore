@@ -31,9 +31,5 @@ venv/
 Thumbs.db
 .DS_Store
 
-# Output test citra (opsional, kalau gak mau commit file hasil generate)
-*.pgm
-!tests/*.pgm
-
 # Log
 *.log
