@@ -18,6 +18,10 @@ namespace mps{
     bool loadRAW(const string& filename, Image& img);
     bool saveRAW(const string& filename, const Image& img);
 
+    //BMP
+    bool loadBMP(const string& filename, Image& img);
+    bool saveBMP(const string& filename, const Image& img);
+
     //info
     void printImageInfo(const string& filename, const Image& img);
 }
