@@ -50,21 +50,29 @@ class MiniPhotoshopApp:
 
         self.root.config(menu=menubar)
 
-    def open_file(self):
+   def open_file(self):
         filename = filedialog.askopenfilename(
             title="Buka Arsip Citra",
-           filetypes=[
-            ("PGM files", "*.pgm"),
-            ("PBM files", "*.pbm"),
-            ("PPM files", "*.ppm"),
-            ("All supported", "*.pgm *.pbm *.ppm"),
-            ("All files", ".")
-        ]
+            filetypes=[
+                ("Semua format didukung", "*.pbm *.pgm"),
+                ("PBM files", "*.pbm"),
+                ("PGM files", "*.pgm"),
+                ("All files", "*.*"),
+            ]
         )
         if not filename:
             return  # user cancel
 
-        ok, img = mps_engine.load_pgm(filename)
+        # pilih fungsi pembaca berdasarkan ekstensi file
+        ext = os.path.splitext(filename)[1].lower()
+        if ext == ".pbm":
+            ok, img = mps_engine.load_pbm(filename)
+        elif ext == ".pgm":
+            ok, img = mps_engine.load_pgm(filename)
+        else:
+            messagebox.showerror("Error", f"Format belum didukung: {ext}")
+            return
+
         if not ok:
             messagebox.showerror("Error", f"Gagal membuka file: {filename}")
             return
@@ -116,11 +124,25 @@ class MiniPhotoshopApp:
             return
 
         img = self.current_image
+
+        # ukuran file di disk, dalam byte
+        file_size = os.path.getsize(self.current_filename)
+
+        # tentukan jenis citra
+        arr = img.to_numpy()
+        if img.channels == 3:
+            jenis = "Berwarna (RGB)"
+        elif np.isin(arr, (0, 255)).all():
+            jenis = "Biner (hitam-putih)"
+        else:
+            jenis = "Grayscale"
+
         info = (
-            f"File     : {self.current_filename}\n"
-            f"Lebar    : {img.width} px\n"
-            f"Tinggi   : {img.height} px\n"
-            f"Channels : {img.channels}"
+            f"File       : {self.current_filename}\n"
+            f"Ukuran     : {img.width} x {img.height} px\n"
+            f"Channels   : {img.channels}\n"
+            f"Jenis      : {jenis}\n"
+            f"Ukuran file: {file_size} byte ({file_size / 1024:.2f} KB)"
         )
         messagebox.showinfo("Info Citra", info)
 
