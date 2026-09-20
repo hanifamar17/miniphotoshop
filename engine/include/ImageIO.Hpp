@@ -14,6 +14,10 @@ namespace mps{
     bool loadPBM(const string& filename, Image& img);
     bool savePBM(const string& filename, const Image& img, bool binary= true);
 
+    //RAW IMAGE
+    bool loadRAW(const string& filename, Image& img);
+    bool saveRAW(const string& filename, const Image& img);
+
     //info
     void printImageInfo(const string& filename, const Image& img);
 }

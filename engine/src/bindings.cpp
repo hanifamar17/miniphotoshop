@@ -60,4 +60,14 @@ PYBIND11_MODULE(mps_engine, m) {
 
     m.def("save_pbm", &savePBM, "Simpan citra ke file PBM",
           py::arg("filename"), py::arg("img"), py::arg("binary") = true);
+
+    //RAW
+    m.def("load_raw", [](const string& filename){
+        Image img;
+        bool ok= loadRAW(filename, img);
+        return py::make_tuple(ok, img);
+    }, "Load citra RAW. Return (success, Image)");
+
+    m.def("save_raw", &saveRAW, "Simpan citra ke file RAW",
+        py::arg("filename"), py::arg("img"));
 }
