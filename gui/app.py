@@ -78,11 +78,7 @@ class MiniPhotoshopApp:
         elif ext == ".bmp":
             ok, img = mps_engine.load_bmp(filename)
         elif ext == ".raw":
-            params = self._ask_raw_params()
-            if params is None:
-                return  # user cancel
-            w, h, ch = params
-            ok, img = mps_engine.load_raw(filename, w, h, ch)
+            ok, img = mps_engine.load_raw(filename)
         else:
             messagebox.showerror("Error", f"Format belum didukung: {ext}")
             return
@@ -94,25 +90,6 @@ class MiniPhotoshopApp:
         self.current_image = img
         self.current_filename = filename
         self.display_image(img)
-
-    def _ask_raw_params(self):
-        # RAW tidak punya header, jadi ukuran harus ditanyakan ke pengguna
-        w = simpledialog.askinteger("RAW", "Lebar (px):", parent=self.root, minvalue=1)
-        if w is None:
-            return None
-        h = simpledialog.askinteger("RAW", "Tinggi (px):", parent=self.root, minvalue=1)
-        if h is None:
-            return None
-        ch = simpledialog.askinteger(
-            "RAW", "Jumlah channel (1 = grayscale, 3 = RGB):",
-            parent=self.root, minvalue=1, maxvalue=3
-        )
-        if ch is None:
-            return None
-        if ch not in (1, 3):
-            messagebox.showerror("Error", "Channel harus 1 atau 3")
-            return None
-        return w, h, ch
 
     # ---------- TAMPIL ----------
     def display_image(self, img):
