@@ -50,7 +50,7 @@ class MiniPhotoshopApp:
 
         self.root.config(menu=menubar)
 
-   def open_file(self):
+    def open_file(self):
         filename = filedialog.askopenfilename(
             title="Buka Arsip Citra",
             filetypes=[
