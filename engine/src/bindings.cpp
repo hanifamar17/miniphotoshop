@@ -2,6 +2,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include "ImageIO.hpp"
+#include "ImageProcessing.hpp"
 
 namespace py = pybind11;
 using namespace mps;
@@ -15,6 +16,7 @@ PYBIND11_MODULE(mps_engine, m) {
         .def_readonly("height", &Image::height)
         .def_readonly("channels", &Image::channels)
         .def("empty", &Image::empty)
+        .def("clone", [](const Image& img) { return Image(img); }, "Buat salinan (deep copy) citra")
         .def("to_numpy", [](const Image& img) {
             // buat numpy array shape (height, width) buat grayscale
             // atau (height, width, channels) buat RGB
@@ -80,4 +82,24 @@ PYBIND11_MODULE(mps_engine, m) {
 
     m.def("save_bmp", &saveBMP, "Simpan citra ke file BMP",
         py::arg("filename"), py::arg("img"));
+
+    //OPERASI CITRA
+    //konversi ke citra negatif
+    m.def("make_negative", [](Image& img){
+        makeNegative(img);
+        return img;
+    }, "Buat citra negatif (in-place, return citra yang sama)");
+
+    //konversi RGB ke grayscale
+    m.def("to_grayscale", [](const Image& img){
+        Image result= toGrayscale(img);
+        bool ok= !result.empty();
+        return py::make_tuple(ok, result); 
+    }, "Konversi citra RGB ke Grayscale. Return (success, Image)");
+
+    //image brightening
+    m.def("brighten", [](Image& img, int b){
+        brighten(img, b);
+        return img;
+    }, "Ubah kecerahan citra (in-place, return citra yang sama)", py::arg("img"), py::arg("b"));
 }
