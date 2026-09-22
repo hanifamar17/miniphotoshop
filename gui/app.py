@@ -43,6 +43,13 @@ class MiniPhotoshopApp:
         menu_citra.add_command(label="Info Citra", command=self.show_info)
         menubar.add_cascade(label="Citra", menu=menu_citra)
 
+        # Menu Olah Citra
+        menu_olah = tk.Menu(menubar, tearoff=0)
+        menu_olah.add_command(label="Citra Negatif", command=self.apply_negative)
+        menu_olah.add_command(label="Ubah ke Grayscale", command=self.apply_grayscale)
+        menu_olah.add_command(label="Brightening...", command=self.apply_brightening)
+        menubar.add_cascade(label="Olah Citra", menu=menu_olah)
+
         # Menu Bantuan
         menu_bantuan = tk.Menu(menubar, tearoff=0)
         menu_bantuan.add_command(label="Tentang", command=self.show_about)
@@ -204,6 +211,49 @@ class MiniPhotoshopApp:
             f"Ukuran file: {file_size} byte ({file_size / 1024:.2f} KB)"
         )
         messagebox.showinfo("Info Citra", info)
+
+    # ---------- OLAH CITRA ----------
+    def apply_negative(self):
+        if self.current_image is None:
+            messagebox.showwarning("Peringatan", "Belum ada citra yang dibuka")
+            return
+
+        self.current_image = mps_engine.make_negative(self.current_image)
+        self.display_image(self.current_image)
+
+    def apply_grayscale(self):
+        if self.current_image is None:
+            messagebox.showwarning("Peringatan", "Belum ada citra yang dibuka")
+            return
+
+        if self.current_image.channels == 1:
+            messagebox.showinfo("Info", "Citra ini sudah grayscale/biner")
+            return
+
+        ok, result = mps_engine.to_grayscale(self.current_image)
+        if not ok:
+            messagebox.showerror("Error", "Gagal mengubah citra ke grayscale")
+            return
+
+        self.current_image = result
+        self.display_image(self.current_image)
+
+    def apply_brightening(self):
+        if self.current_image is None:
+            messagebox.showwarning("Peringatan", "Belum ada citra yang dibuka")
+            return
+
+        nilai = simpledialog.askinteger(
+            "Brightening",
+            "Nilai kecerahan (-255 s/d 255):\n"
+            "Positif = lebih terang, Negatif = lebih gelap",
+            parent=self.root, minvalue=-255, maxvalue=255
+        )
+        if nilai is None:
+            return  # user cancel
+
+        self.current_image = mps_engine.brighten(self.current_image, nilai)
+        self.display_image(self.current_image)
 
     def show_about(self):
         messagebox.showinfo("Tentang", "MiniPhotoshop\nEngine C++ + GUI Python")
