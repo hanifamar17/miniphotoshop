@@ -235,9 +235,11 @@ class MiniPhotoshopApp:
             title="Simpan Citra",
             defaultextension=".pgm",
             filetypes=[
+                ("PBM files", "*.pbm"),
                 ("PGM files", "*.pgm"),
                 ("PPM files", "*.ppm"),
                 ("BMP files", "*.bmp"),
+                ("RAW files", "*.raw"),
             ]
         )
         if not filename:
@@ -246,19 +248,29 @@ class MiniPhotoshopApp:
         ext = os.path.splitext(filename)[1].lower()
         img = self.current_image
 
+        if ext == ".pbm" and img.channels != 1:
+            messagebox.showerror("Error", "PBM hanya untuk citra grayscale/biner. Simpan sebagai PPM atau BMP.")
+            return
         if ext == ".pgm" and img.channels != 1:
             messagebox.showerror("Error", "PGM hanya untuk citra grayscale. Simpan sebagai PPM atau BMP.")
             return
         if ext == ".ppm" and img.channels != 3:
             messagebox.showerror("Error", "PPM hanya untuk citra berwarna. Simpan sebagai PGM atau BMP.")
             return
+        if ext == ".raw" and img.channels != 1:
+            messagebox.showerror("Error", "RAW hanya untuk citra grayscale. Simpan sebagai PPM atau BMP.")
+            return
 
-        if ext == ".pgm":
+        if ext == ".pbm":
+            ok = mps_engine.save_pbm(filename, img, True)
+        elif ext == ".pgm":
             ok = mps_engine.save_pgm(filename, img, True)
         elif ext == ".ppm":
             ok = mps_engine.save_ppm(filename, img, True)
         elif ext == ".bmp":
             ok = mps_engine.save_bmp(filename, img)
+        elif ext == ".raw":
+            ok = mps_engine.save_raw(filename, img)
         else:
             messagebox.showerror("Error", f"Format belum didukung: {ext}")
             return

@@ -103,7 +103,7 @@ namespace mps{
 
         if(binary){
             int bytesPerRow= (img.width + 7)/8;
-            for(int row = 0; img.height; row++){
+            for(int row = 0; row < img.height; row++){
                 for(int byteIdx = 0; byteIdx < bytesPerRow; byteIdx++){
                     unsigned char b = 0;
                     for(int bit = 0; bit < 8; bit++){
