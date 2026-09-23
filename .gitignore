@@ -24,6 +24,7 @@ gui/__pycache__/
 gui/components/__pycache__/
 venv/
 .venv/
+tests/test.py
 
 # Editor / OS
 .vscode/

@@ -65,11 +65,11 @@ namespace mps{
         }
 
         int bitCount= infoHdr.bitCount;
-        if(bitCount != 1 && bitCount != 8 && bitCount != 24){
+        if(bitCount != 1 && bitCount != 8 && bitCount != 24 && bitCount != 32){
             return false; //hanya BMP 1-bit (biner), 8-bit (gray) dan 24-bit (RGB)
         }
 
-        int channels= (bitCount == 24) ? 3 : 1;
+        int channels= (bitCount == 24 || bitCount == 32) ? 3 : 1;
 
         try{
             img.allocate(width, height, channels);
@@ -91,7 +91,17 @@ namespace mps{
 
             int destRow= flipped ? (height - 1 - r) : r; //jika bottom-up, simpan di baris terbalik
 
-            if(bitCount == 24){
+            if(bitCount == 32){
+                for(int col = 0; col < width; col++){
+                    uint8_t b= rowBuffer[col * 4 + 0];
+                    uint8_t g= rowBuffer[col * 4 + 1];
+                    uint8_t rr= rowBuffer[col * 4 + 2];
+                    // byte ke-4 alpha, diabaikan
+                    img.at(destRow, col, 0)= rr;
+                    img.at(destRow, col, 1)= g;
+                    img.at(destRow, col, 2)= b;
+                }
+            }if(bitCount == 24){
                 for(int col = 0; col < width; col++){
                     // BMP 24-bit: BGR
                     uint8_t b= rowBuffer[col * 3 + 0];

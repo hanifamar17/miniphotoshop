@@ -42,8 +42,8 @@ namespace mps{
         fin >> maxval;
         skipWhitespaceAndComments(fin); //handle komentar setelah maxval
 
-        if(width <= 0 || height <= 0 || maxval <= 0){
-            return false;
+        if(maxval <= 0 || maxval > 255){
+            return false; //hanya support 8-bit per channel
         }
 
         try{

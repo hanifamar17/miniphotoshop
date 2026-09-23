@@ -38,7 +38,8 @@ namespace mps{
         fin >> width;
         skipWhitespaceAndComments(fin);
         fin >> height;
-        fin.get(); //buang satu whitespace setelah height
+        char sep;
+        skipWhitespaceAndComments(fin);
 
         if(width <= 0 || height <= 0){
             return false;

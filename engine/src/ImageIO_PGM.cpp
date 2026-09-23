@@ -42,9 +42,9 @@ namespace mps{
         fin >> height;
         skipWhitespaceAndComments(fin);
         fin >> maxval;
-        fin.get(); //buang satu whitespace/newline setelah maxval
+        fin.get();
 
-        if(width <= 0 || height <= 0 || maxval <= 0){
+        if(width <= 0 || height <= 0 || maxval <= 0 || maxval > 255){
             return false;
         }
 
