@@ -17,17 +17,21 @@ class ViewMixin:
         self.redo_stack = []
         self.zoom_level = 1.0
 
+        self.root.bind("<Control-z>", lambda e: self.undo())
+        self.root.bind("<Control-Shift-Y>", lambda e: self.redo())
+        self.root.bind("<Control-Shift-y>", lambda e: self.redo())
+        self.root.bind("<Control-equal>", lambda e: self.zoom_in())
+        self.root.bind("<Control-KP_Add>", lambda e: self.zoom_in())
+        self.root.bind("<Control-KP_Subtract>", lambda e: self.zoom_out())
+
         self._setup_style()
         self.root.configure(bg=self.bg)
         self._build_menu()
         self._build_layout()
-
-        self.root.bind("<Control-z>", lambda e: self.undo())
-        self.root.bind("<Control-o>", lambda e: self.open_file())
-        self.root.bind("<Control-s>", lambda e: self.save_file())
-        self.root.bind("<Control-plus>", lambda e: self.zoom_in())
-        self.root.bind("<Control-minus>", lambda e: self.zoom_out())
-        self.root.bind("<Control-0>", lambda e: self.zoom_fit())
+        self.root.bind("<Button-1>", self._on_root_click, add="+")
+        self.root.bind("<Escape>", lambda e: self._close_popup(), add="+")
+        self._update_history_ui()
+        self._dark_titlebar()
 
     def _setup_style(self):
         self.bg = "#1e1e1e"
@@ -49,83 +53,81 @@ class ViewMixin:
         style = ttk.Style(self.root)
         style.theme_use("clam")
 
+        style.configure("Bar.TButton", padding=(10, 3))
         style.configure(".", background=self.bg, foreground=self.fg,
                          font=("Segoe UI", 10), borderwidth=0)
-        style.configure("TFrame", background=self.bg)
-        style.configure("Toolbar.TFrame", background=self.bg_panel)
         style.configure("Canvas.TFrame", background=self.bg_dark)
-        style.configure("TPanedwindow", background=self.bg)
-
-        style.configure("TButton", background=self.accent, foreground=self.fg,
-                         padding=(14, 8), relief="flat", borderwidth=0)
-        style.map("TButton",
-                   background=[("active", self.accent_hover), ("pressed", self.bg_dark)],
-                   foreground=[("disabled", self.fg_dim)])
-
         style.configure("Icon.TButton", padding=(10, 6), font=("Segoe UI", 9))
 
-        style.configure("TSeparator", background=self.border)
+        style.configure("TFrame", background=self.bg)
+        style.configure("Toolbar.TFrame", background=self.bg_panel)
+        style.configure("TPanedwindow", background=self.bg)
+        style.configure("TButton", background=self.accent, foreground=self.fg,
+                         padding=(14, 8), relief="flat", borderwidth=0)
         style.configure("TLabelframe", background=self.bg, foreground=self.fg,
                          font=("Segoe UI", 10, "bold"), bordercolor=self.border, relief="flat")
         style.configure("TLabelframe.Label", background=self.bg, foreground=self.fg)
+        style.configure("TSeparator", background=self.border)
+
         style.configure("Status.TLabel", background=self.bg_dark, foreground=self.fg_dim,
                          font=("Segoe UI", 9), padding=(8, 4))
+        style.configure("Sash", sashthickness=6, gripcount=0,
+                background=self.border, bordercolor=self.border,
+                lightcolor=self.border, darkcolor=self.border)
+
+        style.map("TButton",
+                           background=[("active", self.accent_hover), ("pressed", self.bg_dark)],
+                           foreground=[("disabled", self.fg_dim)])
 
     def _build_menu(self):
-        menubar = tk.Menu(self.root, **self.menu_kwargs)
+        bar = tk.Frame(self.root, bg=self.bg_panel)
+        bar.pack(fill=tk.X, side=tk.TOP)
+        self._popup = None
+        self._popup_owner = None
 
-        # File
-        menu_file = tk.Menu(menubar, **self.menu_kwargs)
-        menu_file.add_command(label="Open...", command=self.open_file, accelerator="Ctrl+O")
-        menu_file.add_command(label="Save...", command=self.save_file, accelerator="Ctrl+S")
-        menu_file.add_separator()
-        menu_file.add_command(label="Exit", command=self.root.quit)
-        menubar.add_cascade(label="File", menu=menu_file)
+        def add(label, items):
+            lb = tk.Label(bar, text=label, bg=self.bg_panel, fg=self.fg,
+                          padx=12, pady=6, font=("Segoe UI", 10))
+            lb.pack(side="left")
+            lb.bind("<Enter>", lambda e: lb.config(bg=self.accent_hover))
+            lb.bind("<Leave>", lambda e: lb.config(bg=self.bg_panel)
+                    if self._popup_owner is not lb else None)
+            lb.bind("<Button-1>", lambda e: self._toggle_popup(lb, items))
 
-        # Edit
-        menu_edit = tk.Menu(menubar, **self.menu_kwargs)
-        menu_edit.add_command(label="Undo", command=self.undo, accelerator="Ctrl+Z")
-        menu_edit.add_command(label="Redo", command=self.redo, accelerator="Ctrl+Y", state=tk.DISABLED)
-        menu_edit.add_separator()
-        menu_edit.add_command(label="Reset to Original", command=self.reset_to_original)
-        menubar.add_cascade(label="Edit", menu=menu_edit)
+        add("File", [
+            dict(label="Open...", command=self.open_file, accelerator="Ctrl+O"),
+            dict(label="Save...", command=self.save_file, accelerator="Ctrl+S"),
+            None,
+            dict(label="Exit", command=self.root.quit),
+        ])
+        add("Edit", [
+            dict(label="Undo", command=self.undo, accelerator="Ctrl+Z",
+                 enabled=lambda: bool(self.undo_stack)),
+            dict(label="Redo", command=self.redo, accelerator="Ctrl+Shift+Y",
+                 enabled=lambda: bool(self.redo_stack)),
+            None,
+            dict(label="Reset to Original", command=self.reset_to_original),
+        ])
+        add("Image", [
+            dict(label="Negative", command=self.apply_negative),
+            dict(label="Grayscale", command=self.apply_grayscale),
+            None,
+            dict(label="Brightness...", command=self.open_brightening_dialog),
+        ])
+        add("View", [
+            dict(label="Zoom In", command=self.zoom_in, accelerator="Ctrl++"),
+            dict(label="Zoom Out", command=self.zoom_out, accelerator="Ctrl+-"),
+            dict(label="Fit to Screen", command=self.zoom_fit, accelerator="Ctrl+0"),
+        ])
+        add("Help", [dict(label="About", command=self.show_about)])
 
-        # Image (dulu "Olah Citra")
-        menu_image = tk.Menu(menubar, **self.menu_kwargs)
-        menu_image.add_command(label="Negative", command=self.apply_negative)
-        menu_image.add_command(label="Grayscale", command=self.apply_grayscale)
-        menu_image.add_separator()
-        menu_image.add_command(label="Brightness...", command=self.open_brightening_dialog)
-        menubar.add_cascade(label="Image", menu=menu_image)
-
-        # View (dulu "Tampilan")
-        menu_view = tk.Menu(menubar, **self.menu_kwargs)
-        menu_view.add_command(label="Zoom In", command=self.zoom_in, accelerator="Ctrl++")
-        menu_view.add_command(label="Zoom Out", command=self.zoom_out, accelerator="Ctrl+-")
-        menu_view.add_command(label="Fit to Screen", command=self.zoom_fit, accelerator="Ctrl+0")
-        menubar.add_cascade(label="View", menu=menu_view)
-
-        # Help
-        menu_help = tk.Menu(menubar, **self.menu_kwargs)
-        menu_help.add_command(label="About", command=self.show_about)
-        menubar.add_cascade(label="Help", menu=menu_help)
-
-        self.root.config(menu=menubar)
+        # Undo / Redo rata kanan (tetap seperti sebelumnya)
+        self.btn_redo = ttk.Button(bar, text="Redo", style="Bar.TButton", command=self.redo)
+        self.btn_redo.pack(side="right", padx=(0, 8), pady=3)
+        self.btn_undo = ttk.Button(bar, text="Undo", style="Bar.TButton", command=self.undo)
+        self.btn_undo.pack(side="right", padx=4, pady=3)
 
     def _build_layout(self):
-        # Toolbar minimal — cuma aksi paling sering
-        toolbar = ttk.Frame(self.root, style="Toolbar.TFrame")
-        toolbar.pack(fill=tk.X, side=tk.TOP)
-
-        inner = ttk.Frame(toolbar, style="Toolbar.TFrame")
-        inner.pack(fill=tk.X, padx=8, pady=6)
-
-        ttk.Button(inner, text="Buka", style="Icon.TButton", command=self.open_file).pack(side="left", padx=(0, 4))
-        ttk.Button(inner, text="Simpan", style="Icon.TButton", command=self.save_file).pack(side="left", padx=4)
-        ttk.Separator(inner, orient="vertical").pack(side="left", fill="y", padx=10)
-        ttk.Button(inner, text="Undo", style="Icon.TButton", command=self.undo).pack(side="left", padx=4)
-        ttk.Button(inner, text="Reset", style="Icon.TButton", command=self.reset_to_original).pack(side="left", padx=4)
-
         # Body
         self.paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.paned.pack(fill=tk.BOTH, expand=True)
@@ -168,6 +170,91 @@ class ViewMixin:
                    command=self.zoom_in).pack(side="left", padx=2)
         ttk.Button(zoom_box, text="Fit", style="Icon.TButton",
                    command=self.zoom_fit).pack(side="left", padx=(8, 0))
+
+    def _dark_titlebar(self):
+        try:
+            import ctypes
+            self.root.update()
+            hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+            for attr in (20, 19):  # 20 = Win10 2004+/11, 19 = build lama
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, attr, ctypes.byref(ctypes.c_int(1)), 4)
+        except Exception:
+            pass
+
+    def _update_history_ui(self):
+        can_undo = bool(self.undo_stack)
+        can_redo = bool(self.redo_stack)
+        self.btn_undo.state(["!disabled"] if can_undo else ["disabled"])
+        self.btn_redo.state(["!disabled"] if can_redo else ["disabled"])
+
+    def _toggle_popup(self, owner, items):
+        reopen = self._popup_owner is not owner
+        self._close_popup()
+        if reopen:
+            self._open_popup(owner, items)
+
+    def _close_popup(self):
+        if self._popup is not None:
+            self._popup.destroy()
+            self._popup = None
+        if self._popup_owner is not None:
+            self._popup_owner.config(bg=self.bg_panel)
+            self._popup_owner = None
+
+    def _on_root_click(self, e):
+        if self._popup is not None and e.widget is not self._popup_owner:
+            self._close_popup()
+
+    def _open_popup(self, owner, items):
+        pop = tk.Toplevel(self.root)
+        pop.withdraw()
+        pop.overrideredirect(True)
+        pop.configure(bg=self.border)
+        body = tk.Frame(pop, bg=self.bg_panel)
+        body.pack(padx=1, pady=1)
+
+        for it in items:
+            if it is None:
+                tk.Frame(body, bg=self.border, height=1).pack(fill="x", pady=4)
+                continue
+            enabled = it.get("enabled", lambda: True)()
+            row = tk.Frame(body, bg=self.bg_panel)
+            row.pack(fill="x")
+            left = tk.Label(row, text=it["label"], bg=self.bg_panel,
+                            fg=self.fg if enabled else self.fg_dim,
+                            anchor="w", padx=14, pady=5, font=("Segoe UI", 10))
+            left.pack(side="left", fill="x", expand=True)
+            right = tk.Label(row, text=it.get("accelerator", ""), bg=self.bg_panel,
+                             fg=self.fg_dim, anchor="e", padx=14, font=("Segoe UI", 9))
+            right.pack(side="right")
+            if not enabled:
+                continue
+
+            def on_enter(e, ws=(row, left, right)):
+                for w in ws:
+                    w.config(bg=self.accent_hover)
+
+            def on_leave(e, ws=(row, left, right)):
+                for w in ws:
+                    w.config(bg=self.bg_panel)
+
+            def on_click(e, c=it["command"]):
+                self._close_popup()
+                c()
+
+            for w in (row, left, right):
+                w.bind("<Enter>", on_enter)
+                w.bind("<Leave>", on_leave)
+                w.bind("<Button-1>", on_click)
+
+        pop.update_idletasks()
+        pop.geometry(f"+{owner.winfo_rootx()}+{owner.winfo_rooty() + owner.winfo_height()}")
+        pop.deiconify()
+        pop.attributes("-topmost", True)
+        self._popup = pop
+        self._popup_owner = owner
+        owner.config(bg=self.accent_hover)
 
     # ---------- ZOOM ----------
     def _on_zoom_scroll(self, event):

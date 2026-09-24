@@ -53,6 +53,7 @@ class ProcessingMixin:
 
     # ---------- UPDATE PANEL INFO ----------
     def update_info(self):
+        self._update_history_ui()
         if self.current_image is None:
             return
 
