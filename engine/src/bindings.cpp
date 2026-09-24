@@ -83,6 +83,24 @@ PYBIND11_MODULE(mps_engine, m) {
     m.def("save_bmp", &saveBMP, "Simpan citra ke file BMP",
         py::arg("filename"), py::arg("img"));
 
+    //PNG
+    m.def("load_png", [](const string& filename){
+        Image img;
+        bool ok= loadPNG(filename, img);
+        return py::make_tuple(ok, img);
+    }, "Load citra PNG. Return (success, Image)");
+
+    m.def("save_png", &savePNG, "Simpan citra ke file PNG", py::arg("filename"), py::arg("img"));
+
+    //JPG
+    m.def("load_jpg", [](const string& filename){
+        Image img;
+        bool ok= loadJPG(filename, img);
+        return py::make_tuple(ok, img);
+    }, "Load citra JPG/JPEG. Return (success, Image)");
+
+    m.def("save_jpg", &saveJPG, "Simpan citra ke file JPG", py::arg("filename"), py::arg("img"), py::arg("quality")=90);
+
     //OPERASI CITRA
     //konversi ke citra negatif
     m.def("make_negative", [](Image& img){

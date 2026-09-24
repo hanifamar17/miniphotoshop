@@ -15,6 +15,7 @@ add_executable(
     src/ImageIO_PBM.cpp
     src/ImageIO_RAW.cpp
     src/ImageIO_BMP.cpp
+    src/ImageIO_stb.cpp
     src/ImageProcessing.cpp
 )
 
@@ -28,6 +29,7 @@ pybind11_add_module(
     src/ImageIO_PBM.cpp
     src/ImageIO_RAW.cpp
     src/ImageIO_BMP.cpp
+    src/ImageIO_stb.cpp
     src/ImageProcessing.cpp 
 )
 target_link_options(mps_engine PRIVATE -static-libgcc -static-libstdc++ -static -lwinpthread)
