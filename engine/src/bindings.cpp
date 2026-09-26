@@ -3,6 +3,7 @@
 #include <pybind11/stl.h>
 #include "ImageIO.hpp"
 #include "ImageProcessing.hpp"
+#include "Histogram.hpp"
 
 namespace py = pybind11;
 using namespace mps;
@@ -16,20 +17,20 @@ PYBIND11_MODULE(mps_engine, m) {
         .def_readonly("height", &Image::height)
         .def_readonly("channels", &Image::channels)
         .def("empty", &Image::empty)
+        .def("allocate", &Image::allocate, "Alokasi citra baru (width, height, channels)",
+            py::arg("width"), py::arg("height"), py::arg("channels"))
         .def("clone", [](const Image& img) { return Image(img); }, "Buat salinan (deep copy) citra")
+        .def("set_pixel", [](Image& img, int row, int col, int c, uint8_t value) {
+            img.at(row, col, c)= value;
+        }, "Set nilai piksel", py::arg("row"), py::arg("col"), py::arg("c"), py::arg("value"))
+        .def("get_pixel", [](const Image& img, int row, int col, int c) {
+            return img.at(row, col, c);
+        }, "Ambil nilai piksel", py::arg("row"), py::arg("col"), py::arg("c")= 0)
         .def("to_numpy", [](const Image& img) {
-            // buat numpy array shape (height, width) buat grayscale
-            // atau (height, width, channels) buat RGB
             if (img.channels == 1) {
-                return py::array_t<uint8_t>(
-                    {img.height, img.width},
-                    img.data.data()
-                );
+                return py::array_t<uint8_t>({img.height, img.width}, img.data.data());
             } else {
-                return py::array_t<uint8_t>(
-                    {img.height, img.width, img.channels},
-                    img.data.data()
-                );
+                return py::array_t<uint8_t>({img.height, img.width, img.channels}, img.data.data());
             }
         });
     
@@ -120,4 +121,33 @@ PYBIND11_MODULE(mps_engine, m) {
         brighten(img, b);
         return img;
     }, "Ubah kecerahan citra (in-place, return citra yang sama)", py::arg("img"), py::arg("b"));
+
+    //HiSTOGRAM
+    py::class_<HistogramData>(m, "HistogramData")
+        .def(py::init<>())
+        .def_readonly("total_pixels", &HistogramData::totalPixels)
+        .def_readonly("mean", &HistogramData::mean)
+        .def_readonly("variance", &HistogramData::variance)
+        .def_readonly("stdv", &HistogramData::stdv)
+        .def_property_readonly("counts", [](const HistogramData& h){
+            return vector<int>(h.counts, h.counts + 256);
+        })
+        .def_property_readonly("normalized", [](const HistogramData& h){
+            return vector<double>(h.normalized, h.normalized + 256);
+        });
+    
+    py::class_<ColorHistogramData>(m, "ColorHistogramData")
+        .def(py::init<>())
+        .def_readonly("red", &ColorHistogramData::red)
+        .def_readonly("green", &ColorHistogramData::green)
+        .def_readonly("blue", &ColorHistogramData::blue)
+        .def_readonly("luminosity", &ColorHistogramData::luminosity);
+       
+    //histogram 1 channel
+    m.def("compute_histogram", &computeHistogram, "Histogram citra 1 channel",
+        py::arg("img"));
+    
+    //histogram 3 channel
+    m.def("compute_color_histogram", &computeColorHistogram, "Histogram citra RGB (per kanal & luminosity)",
+        py::arg("img"));
 }

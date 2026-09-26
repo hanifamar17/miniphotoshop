@@ -17,6 +17,7 @@ add_executable(
     src/ImageIO_BMP.cpp
     src/ImageIO_stb.cpp
     src/ImageProcessing.cpp
+    src/Histogram.cpp
 )
 
 #modul python via pybind11
@@ -31,5 +32,6 @@ pybind11_add_module(
     src/ImageIO_BMP.cpp
     src/ImageIO_stb.cpp
     src/ImageProcessing.cpp 
+    src/Histogram.cpp
 )
 target_link_options(mps_engine PRIVATE -static-libgcc -static-libstdc++ -static -lwinpthread)

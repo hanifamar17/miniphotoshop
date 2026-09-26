@@ -83,6 +83,9 @@ class ProcessingMixin:
         self.info_text.delete("1.0", tk.END)
         self.info_text.insert(tk.END, info)
         self.info_text.config(state=tk.DISABLED)
+        
+        # live update histogram
+        self.hist_panel.update(self.current_image)
 
     # ---------- OLAH CITRA ----------
     def apply_negative(self):
