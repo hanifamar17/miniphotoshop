@@ -130,7 +130,7 @@ class HistogramPanel(tk.Frame):
         for spine in ("left", "bottom"):
             self.ax.spines[spine].set_color(self.t["border"])
         self.ax.tick_params(colors=self.t["fg_dim"], labelsize=8)
-        self.ax.set_xlim(0, 255)
+        self.ax.set_xlim(-3, 258)
         self.ax.yaxis.set_major_formatter(FuncFormatter(_fmt_y))
 
     def _redraw(self):
