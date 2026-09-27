@@ -57,7 +57,7 @@ namespace mps{
                 int val;
                 fin>>val;
                 if(!fin) return false;
-                img.data[i]= static_cast<uint8_t>(val);
+                img.data[i]= (val != 0) ? 0 : 255;
             }
         }else{
             // binary: baca byte-byte, tiap bit mewakili satu pixel
@@ -74,7 +74,7 @@ namespace mps{
                         if(col >= width) break;
 
                         int pixelVal= (b >> (7 - bit)) & 1;
-                        img.at(row, col)= static_cast<uint8_t>(pixelVal);
+                        img.at(row, col)= (pixelVal != 0) ? 0 : 255;
                     }
                 }
             }

@@ -55,14 +55,19 @@ namespace mps{
         }
 
         if(magic == "P5"){
-            fin.read(reinterpret_cast<char*>(img.data.data()), img.data.size());
+            vector<uint8_t> raw(img.data.size());
+            fin.read(reinterpret_cast<char*>(raw.data()), raw.size());
             if(!fin) return false;
+
+            for(size_t i = 0; i < raw.size(); i++){
+                img.data[i] = static_cast<uint8_t>(raw[i] * 255 / maxval);
+            }
         }else{
             for(size_t i = 0; i < img.data.size(); i++){
                 int val;
                 fin >> val;
                 if(!fin) return false;
-                img.data[i] = static_cast<uint8_t>(val);
+                img.data[i] = static_cast<uint8_t>(val * 255 / maxval);
             }
         }
 
