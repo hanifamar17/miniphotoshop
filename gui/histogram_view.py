@@ -64,15 +64,34 @@ class HistogramPanel(tk.Frame):
                        selectcolor=self.t["bg_panel"], activebackground=self.t["bg_dark"],
                        activeforeground=self.t["fg"], font=("Segoe UI", 9)).pack(side="left")
 
+        # --- FIX: label statistik di-pack LEBIH DULU dengan side="bottom" ---
+        # Di Tkinter pack, widget yang di-pack lebih dulu mendapat prioritas
+        # ruang di sisi yang ia tempati. Sebelumnya canvas grafik (expand=True)
+        # di-pack duluan sehingga saat panel diperkecil (mis. window di-restore
+        # dari minimize ke ukuran kecil, atau sash panel digeser), canvas
+        # "menelan" semua ruang tersisa dan label Mean/Variance/Std Dev di
+        # bawahnya kehabisan tempat / terpotong dari tampilan.
+        #
+        # Dengan mem-pack label ini terlebih dahulu dan menempel di
+        # side="bottom", ruang untuknya dicadangkan dulu di bagian bawah
+        # panel. Baru setelah itu canvas grafik mengisi SISA ruang di
+        # atasnya. Hasilnya: teks statistik (termasuk Std Dev) selalu utuh
+        # terlihat, sedangkan yang menyusut lebih dulu saat ruang sempit
+        # adalah grafik histogram-nya.
+        self.stats_var = tk.StringVar(value="")
+        self.stats_label = tk.Label(
+            self, textvariable=self.stats_var, bg=self.t["bg_dark"], fg=self.t["fg_dim"],
+            font=("Consolas", 9), justify="left", anchor="w"
+        )
+        self.stats_label.pack(side="bottom", fill="x", padx=8, pady=(4, 8))
+
         self.fig = Figure(figsize=(3.0, 1.8), dpi=100, facecolor=self.t["bg_dark"])
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
-        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=8, pady=8)
-
-        self.stats_var = tk.StringVar(value="")
-        tk.Label(self, textvariable=self.stats_var, bg=self.t["bg_dark"], fg=self.t["fg_dim"],
-                 font=("Consolas", 9), justify="left", anchor="w").pack(
-            fill="x", padx=8, pady=(0, 8))
+        # side="top" + expand=True: mengisi ruang yang TERSISA setelah
+        # stats_label mengambil jatahnya di bawah, jadi grafik yang
+        # menyesuaikan/menyusut duluan, bukan teks statistiknya.
+        self.canvas.get_tk_widget().pack(side="top", fill="both", expand=True, padx=8, pady=(8, 4))
 
     def _open_mode_menu(self, event):
         items = [
@@ -122,7 +141,7 @@ class HistogramPanel(tk.Frame):
         self._style_axes()
         self.canvas.draw()
         self.stats_var.set("Belum ada citra.")
-    
+
     def _style_axes(self):
         self.ax.set_facecolor(self.t["bg_dark"])
         for spine in ("top", "right"):
@@ -136,21 +155,21 @@ class HistogramPanel(tk.Frame):
     def _redraw(self):
         self.ax.clear()
         self._style_axes()
-    
+
         mode = self.mode_var.get()
         normalized = self.norm_var.get()
         x = range(256)
-    
+
         def series(h):
             return h.normalized if normalized else h.counts
-    
+
         if self._gray_hist is not None:
             h = self._gray_hist
             y = series(h)
             self.ax.bar(x, y, width=1, color=NEUTRAL, edgecolor="none")
             self._autoscale_ignore_extremes(y)
             self._set_stats(h)
-    
+
         elif self._color_hist is not None:
             ch = self._color_hist
             if mode == "RGB Overlay":
@@ -179,7 +198,7 @@ class HistogramPanel(tk.Frame):
                 self.ax.fill_between(x, y, color=COLORS[name], alpha=0.15)
                 self._autoscale_ignore_extremes(y)
                 self._set_stats(h)
-    
+
         self.fig.tight_layout(pad=0.5)
         self.canvas.draw()
 
