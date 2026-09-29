@@ -1,4 +1,5 @@
 #include "ImageProcessing.hpp"
+#include <cmath>
 
 namespace mps{
 
@@ -58,5 +59,90 @@ namespace mps{
                 v = static_cast<uint8_t>(temp);
             }
         }
+    }
+
+    //konfigurasi log transform, inverse log, & transformasi pangkat
+    static uint8_t clampToByte(double v){
+        if(v > 255.0){
+            return 255;
+        }else if(v < 0.0){
+            return 0;
+        }else{
+            return(uint8_t)(v + 0.5);
+        }
+    }
+
+    static void applyLUT(Image& img, const uint8_t lut[256]){
+        for(size_t i = 0; i < img.data.size(); i++){
+            img.data[i] = lut[img.data[i]];
+        }
+    }
+
+    //log transform
+    void logTransform(Image& img){
+        uint8_t lut[256];
+        double c = 255.0/log(256.0);
+        for(int r = 0; r < 256; r++){
+            lut[r] = clampToByte(c * log(1.0 + r));
+        }
+        applyLUT(img, lut);
+    }
+
+    //inverse log
+    void inverseLogTransform(Image& img){
+        uint8_t lut[256];
+        double c = 255.0/log(256.0);
+        for(int r = 0; r < 256; r++){
+            lut[r] = clampToByte(exp(r / c) - 1.0);
+        }
+        applyLUT(img, lut);
+    }
+
+    //transformasi pangkat
+    void powerTransform(Image& img, double gamma, double c){
+        uint8_t lut[256];
+        for(int r = 0; r < 256; r++){
+            lut[r] = clampToByte(255.0 * c * pow(r / 255.0, gamma));
+        }
+        applyLUT(img, lut);
+    }
+
+    //gray-level slicing
+    void graySlicing(Image& img, int a, int b, bool preserveBackground, int highlight, int background){
+        if(a > b){
+            int t = a;
+            a = b;
+            b = t;
+        }
+
+        uint8_t lut[256];
+        for(int r = 0; r < 256; r++){
+            if(r >= a && r <= b){
+                lut[r] = clampToByte(highlight);
+            }else if(preserveBackground){
+                lut[r] = (uint8_t)r;
+            }else{
+                lut[r] = clampToByte(background);
+            }
+        }
+        applyLUT(img, lut);
+    }
+
+    //bit-plane slicing
+    void bitPlaneSlicing(Image& img, int k, bool binary){
+        if(k < 0 || k > 7){
+            return;
+        }
+
+        uint8_t lut[256];
+        for(int r = 0; r < 256; r++){
+            int bit = (r >> k) & 1;
+            if(binary){
+                lut[r] = bit ? 255 : 0;
+            }else{
+                lut[r] = (uint8_t)(bit << k);
+            }
+        }
+        applyLUT(img, lut);
     }
 }

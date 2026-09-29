@@ -122,6 +122,41 @@ PYBIND11_MODULE(mps_engine, m) {
         return img;
     }, "Ubah kecerahan citra (in-place, return citra yang sama)", py::arg("img"), py::arg("b"));
 
+    //transformasi log
+    m.def("log_transform", [](Image& img){
+        logTransform(img);
+        return img;
+    }, "Transformasi log (in-place, return citra yang sama)", py::arg("img"));
+    
+    //inverse log
+    m.def("inverse_log_transform", [](Image& img){
+        inverseLogTransform(img);
+        return img;
+    }, "Transformasi inverse log (in-place, return citra yang sama)", py::arg("img"));
+
+    //transformasi pangkat
+    m.def("power_transform", [](Image& img, double gamma, double c){
+        powerTransform(img, gamma, c);
+        return img;
+    }, "Transformasi pangkat (in-place, return citra yang sama)", py::arg("img"), py::arg("gamma"), py::arg("c") = 1.0);
+
+    //gray-level slicing
+    m.def("gray_slicing", [](Image& img, int a, int b, bool preserve, int highlight, int background){
+        graySlicing(img, a, b, preserve, highlight, background);
+        return img;
+    }, "Gray-level slicing rentang [a,b] jadi highlight; preserve=True pertahankan latar, False latar jadi background (in-place, return citra yang sama)",
+        py::arg("img"), py::arg("a"), py::arg("b"), py::arg("preserve") = false, py::arg("highlight") = 255, py::arg("background") = 0);
+
+    //bit-plane slicing
+    m.def("bit_plane_slicing", [](Image& img, int k, bool binary){
+        if(k < 0 || k > 7){
+            throw py::value_error("k harus 0..7");
+        }
+        bitPlaneSlicing(img, k, binary);
+        return img;
+    }, "Ambil bit-plane ke-k (0=LSB, 7=MSB); binary=True: bit 1->255, bit 0->0; False: nilai kontribusi bit (in-place, return citra yang sama)",
+        py::arg("img"), py::arg("k"), py::arg("binary") = true);
+
     //HiSTOGRAM
     py::class_<HistogramData>(m, "HistogramData")
         .def(py::init<>())
