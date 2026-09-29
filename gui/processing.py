@@ -3,7 +3,6 @@ import tkinter as tk
 from tkinter import messagebox
 
 import numpy as np
-
 import mps_engine
 
 
@@ -15,7 +14,7 @@ class ProcessingMixin:
         # Memanggil brightening dengan nilai 0 untuk membuat salinan tanpa mengubah piksel
         return mps_engine.brighten(img, 0)
 
-        # ---------- UNDO & RESET ----------
+    # ---------- UNDO & REDO ----------
     def push_undo(self):
         if self.current_image is not None:
             self.undo_stack.append(self.clone_image(self.current_image))
@@ -84,10 +83,10 @@ class ProcessingMixin:
         self.info_text.insert(tk.END, info)
         self.info_text.config(state=tk.DISABLED)
         
-        # live update histogram
+        # Live update histogram
         self.hist_panel.update(self.current_image)
 
-    # ---------- OLAH CITRA ----------
+    # ---------- OLAH CITRA LAMA ----------
     def apply_negative(self):
         if self.current_image is None:
             messagebox.showwarning("Peringatan", "Belum ada citra yang dibuka")
@@ -116,6 +115,90 @@ class ProcessingMixin:
         self.current_image = result
         self.display_image(self.current_image)
         self.update_info()
+
+    # ---------- CONTRAST STRETCHING (MANUAL & OTOMATIS) ----------
+    def process_manual_contrast(self, r1, s1, r2, s2):
+        if self.current_image is None:
+            return
+
+        try:
+            self.push_undo()
+            self.current_image = mps_engine.contrast_stretching(self.current_image, r1, s1, r2, s2)
+            self.display_image(self.current_image)
+            self.update_info()
+        except ValueError as e:
+            messagebox.showerror("Error Engine", str(e))
+
+    def process_auto_contrast(self, a, b):
+        if self.current_image is None:
+            return
+
+        if self.current_image.channels == 3:
+            messagebox.showwarning(
+                "Peringatan", 
+                "Auto contrast stretching belum mendukung citra RGB. Silakan konversi ke grayscale terlebih dahulu."
+            )
+            return
+
+        try:
+            self.push_undo()
+            self.current_image = mps_engine.auto_contrast_stretching(self.current_image, a=a, b=b)
+            self.display_image(self.current_image)
+            self.update_info()
+        except ValueError as e:
+            messagebox.showerror("Error Engine", str(e))
+
+    # ---------- OPERASI (LOG, INVERSE LOG, POWER, SLICING) ----------
+    def process_log(self):
+        if self.current_image is None:
+            return
+        self.push_undo()
+        self.current_image = mps_engine.log_transform(self.current_image)
+        self.display_image(self.current_image)
+        self.update_info()
+
+    def process_inverse_log(self):
+        if self.current_image is None:
+            return
+        self.push_undo()
+        self.current_image = mps_engine.inverse_log_transform(self.current_image)
+        self.display_image(self.current_image)
+        self.update_info()
+
+    def process_power(self, gamma):
+        if self.current_image is None:
+            return
+        self.push_undo()
+        self.current_image = mps_engine.power_transform(self.current_image, gamma=gamma, c=1.0)
+        self.display_image(self.current_image)
+        self.update_info()
+
+    def process_gray_slicing(self, a, b, preserve):
+        if self.current_image is None:
+            return
+        if self.current_image.channels != 1:
+            messagebox.showwarning("Peringatan", "Gray-level slicing hanya dapat diterapkan pada citra grayscale. Silakan konversi ke grayscale terlebih dahulu.")
+            return
+
+        self.push_undo()
+        self.current_image = mps_engine.gray_slicing(self.current_image, a=a, b=b, preserve=preserve)
+        self.display_image(self.current_image)
+        self.update_info()
+
+    def process_bit_plane(self, k, binary):
+        if self.current_image is None:
+            return
+        if self.current_image.channels != 1:
+            messagebox.showwarning("Peringatan", "Bit-plane slicing hanya dapat diterapkan pada citra grayscale. Silakan konversi ke grayscale terlebih dahulu.")
+            return
+
+        try:
+            self.push_undo()
+            self.current_image = mps_engine.bit_plane_slicing(self.current_image, k=k, binary=binary)
+            self.display_image(self.current_image)
+            self.update_info()
+        except ValueError as e:
+            messagebox.showerror("Error Engine", str(e))
 
     # ---------- BRIGHTENING DIALOG (SLIDER + PREVIEW) ----------
     def open_brightening_dialog(self):
