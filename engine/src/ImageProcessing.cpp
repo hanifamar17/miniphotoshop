@@ -169,6 +169,7 @@ namespace mps{
         }
         applyLUT(img, lut);
     }
+    
     //gray-level slicing
     void graySlicing(Image& img, int a, int b, bool preserveBackground, int highlight, int background){
         if(a > b){
