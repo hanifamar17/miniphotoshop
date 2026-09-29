@@ -61,7 +61,7 @@ namespace mps{
         }
     }
 
-    //konfigurasi log transform, inverse log, & transformasi pangkat
+    //clipping
     static uint8_t clampToByte(double v){
         if(v > 255.0){
             return 255;
@@ -72,6 +72,7 @@ namespace mps{
         }
     }
 
+    //transformasi nilai ke semua pixel
     static void applyLUT(Image& img, const uint8_t lut[256]){
         for(size_t i = 0; i < img.data.size(); i++){
             img.data[i] = lut[img.data[i]];
@@ -107,6 +108,67 @@ namespace mps{
         applyLUT(img, lut);
     }
 
+    //contrast stretching
+    void contrastStretching(Image& img, int r1, int s1, int r2, int s2){
+        uint8_t lut[256];
+        for(int r = 0; r < 256; r++){
+            double s;
+            if(r < r1){
+                s = (double)s1 * r/r1;
+            }else if(r <= r2){
+                if(r2 == r1){
+                    s = s2;
+                }else{
+                    s = s1 + (double)(r - r1)*(s2 - s1)/(r2 - r1);
+                }
+            }else{
+                    s = s2 + (double)(r - r2)*(255 - s2)/(255 - r2);
+            }
+            lut[r] = clampToByte(s);
+        }
+        applyLUT(img, lut);
+    }
+
+    //contrast stretching (otomatis)
+    void autoContrastStretching(Image& img, double a, double b){
+        long long hist[256] = {0};
+        for(size_t i = 0; i < img.data.size(); i++){
+            hist[img.data[i]]++;
+        }
+        double total = (double)img.data.size();
+        double lowLimit = total * a / 100.0;
+        double highLimit = total * (100.0 - b) / 100.0;
+
+        int rmin = 0;
+        long long cum = 0;
+        for(int r = 0; r < 256; r++){
+            cum += hist[r];
+            if(cum > lowLimit){
+                rmin = r;
+                break;
+            }
+        }
+
+        int rmax = 255;
+        cum = 0;
+        for(int r = 255; r >= 0; r--){
+            cum += hist[r];
+            if(cum > highLimit){
+                rmax = r;
+                break;
+            }
+        }
+
+        if(rmin >= rmax){
+            return;
+        }
+
+        uint8_t lut[256];
+        for(int r = 0; r < 256; r++){
+            lut[r] = clampToByte(255.0 * (r - rmin) / (rmax - rmin));
+        }
+        applyLUT(img, lut);
+    }
     //gray-level slicing
     void graySlicing(Image& img, int a, int b, bool preserveBackground, int highlight, int background){
         if(a > b){

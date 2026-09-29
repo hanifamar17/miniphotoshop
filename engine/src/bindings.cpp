@@ -140,6 +140,28 @@ PYBIND11_MODULE(mps_engine, m) {
         return img;
     }, "Transformasi pangkat (in-place, return citra yang sama)", py::arg("img"), py::arg("gamma"), py::arg("c") = 1.0);
 
+    //contrast stretching (manual)
+    m.def("contrast_stretching", [](Image& img, int r1, int s1, int r2, int s2){
+        if(r1 < 0 || r2 > 255 || s1 < 0 || s2 > 255 || r1 > r2){
+            throw py::value_error("syarat: 0 <= r1 <= r2 <= 255, 0 <= s1, s2 <= 255");
+        }
+        contrastStretching(img, r1, s1, r2, s2);
+        return img;
+    },
+    "Contrast stretching garis patah lewat (r1,s1) dan (r2,s2) (in-place, return citra yang sama)",
+    py::arg("img"), py::arg("r1"), py::arg("s1"), py::arg("r2"), py::arg("s2"));
+
+    //contrast stretching (otomatis)
+    m.def("auto_contrast_stretching", [](Image& img, double a, double b){
+        if(a < 0.0 || b > 100.0 || a >= b){
+            throw py::value_error("syarat: 0 <= a < b <= 100");
+        }
+        autoContrastStretching(img, a, b);
+        return img;
+    },
+    "Contrast stretching otomatis dari histogram; a% tergelap jadi hitam, (100-b)% terterang jadi putih (in-place, return citra yang sama)",
+    py::arg("img"), py::arg("a") = 1.0, py::arg("b") = 99.0);
+
     //gray-level slicing
     m.def("gray_slicing", [](Image& img, int a, int b, bool preserve, int highlight, int background){
         graySlicing(img, a, b, preserve, highlight, background);
