@@ -135,52 +135,82 @@ class ManualContrastDialog(tk.Toplevel):
         self.configure(bg=theme["bg_panel"])
         self.result = None
 
-        container = ttk.Frame(self, padding=15)
+        container = ttk.Frame(self, padding=20)
         container.pack(fill="both", expand=True)
 
-        ttk.Label(container, text="r1 (0-255):").grid(row=0, column=0, padx=5, pady=5, sticky="e")
         self.r1_var = tk.IntVar(value=50)
-        ttk.Spinbox(container, from_=0, to=255, textvariable=self.r1_var, width=8).grid(row=0, column=1, padx=5, pady=5)
-
-        ttk.Label(container, text="s1 (0-255):").grid(row=0, column=2, padx=5, pady=5, sticky="e")
         self.s1_var = tk.IntVar(value=20)
-        ttk.Spinbox(container, from_=0, to=255, textvariable=self.s1_var, width=8).grid(row=0, column=3, padx=5, pady=5)
-
-        ttk.Label(container, text="r2 (0-255):").grid(row=1, column=0, padx=5, pady=5, sticky="e")
         self.r2_var = tk.IntVar(value=150)
-        ttk.Spinbox(container, from_=0, to=255, textvariable=self.r2_var, width=8).grid(row=1, column=1, padx=5, pady=5)
-
-        ttk.Label(container, text="s2 (0-255):").grid(row=1, column=2, padx=5, pady=5, sticky="e")
         self.s2_var = tk.IntVar(value=220)
-        ttk.Spinbox(container, from_=0, to=255, textvariable=self.s2_var, width=8).grid(row=1, column=3, padx=5, pady=5)
+
+        # Slider r1
+        ttk.Label(container, text="Titik Input r1:").grid(row=0, column=0, sticky="w", pady=(0, 2))
+        self.r1_lbl = ttk.Label(container, text="50", width=4, anchor="e")
+        self.r1_lbl.grid(row=0, column=2, sticky="e", pady=(0, 2))
+        self.r1_slider = ttk.Scale(container, from_=0, to=255, variable=self.r1_var, 
+                                   orient='horizontal', length=240, command=self._on_r1_change)
+        self.r1_slider.grid(row=1, column=0, columnspan=3, pady=(0, 10), sticky="we")
+
+        # Slider r2
+        ttk.Label(container, text="Titik Input r2:").grid(row=2, column=0, sticky="w", pady=(0, 2))
+        self.r2_lbl = ttk.Label(container, text="150", width=4, anchor="e")
+        self.r2_lbl.grid(row=2, column=2, sticky="e", pady=(0, 2))
+        self.r2_slider = ttk.Scale(container, from_=0, to=255, variable=self.r2_var, 
+                                   orient='horizontal', length=240, command=self._on_r2_change)
+        self.r2_slider.grid(row=3, column=0, columnspan=3, pady=(0, 10), sticky="we")
+
+        # Separator
+        ttk.Separator(container, orient='horizontal').grid(row=4, column=0, columnspan=3, sticky="we", pady=10)
+
+        # Slider s1
+        ttk.Label(container, text="Titik Output s1:").grid(row=5, column=0, sticky="w", pady=(0, 2))
+        self.s1_lbl = ttk.Label(container, text="20", width=4, anchor="e")
+        self.s1_lbl.grid(row=5, column=2, sticky="e", pady=(0, 2))
+        self.s1_slider = ttk.Scale(container, from_=0, to=255, variable=self.s1_var, 
+                                   orient='horizontal', length=240, command=lambda v: self.s1_lbl.config(text=str(int(float(v)))))
+        self.s1_slider.grid(row=6, column=0, columnspan=3, pady=(0, 10), sticky="we")
+
+        # Slider s2
+        ttk.Label(container, text="Titik Output s2:").grid(row=7, column=0, sticky="w", pady=(0, 2))
+        self.s2_lbl = ttk.Label(container, text="220", width=4, anchor="e")
+        self.s2_lbl.grid(row=7, column=2, sticky="e", pady=(0, 2))
+        self.s2_slider = ttk.Scale(container, from_=0, to=255, variable=self.s2_var, 
+                                   orient='horizontal', length=240, command=lambda v: self.s2_lbl.config(text=str(int(float(v)))))
+        self.s2_slider.grid(row=8, column=0, columnspan=3, pady=(0, 15), sticky="we")
 
         btn_frame = ttk.Frame(container)
-        btn_frame.grid(row=2, column=0, columnspan=4, pady=(15, 0))
-        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=5)
+        btn_frame.grid(row=9, column=0, columnspan=3, pady=(10, 0))
+        ttk.Button(btn_frame, text="Terapkan", command=self.on_ok).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Batal", command=self.destroy).pack(side=tk.LEFT, padx=5)
 
         self.transient(parent)
         self.grab_set()
         parent.wait_window(self)
 
+    def _on_r1_change(self, val):
+        r1 = int(float(val))
+        self.r1_lbl.config(text=str(r1))
+        if r1 > self.r2_var.get():
+            self.r2_var.set(r1)
+            self.r2_lbl.config(text=str(r1))
+
+    def _on_r2_change(self, val):
+        r2 = int(float(val))
+        self.r2_lbl.config(text=str(r2))
+        if r2 < self.r1_var.get():
+            self.r1_var.set(r2)
+            self.r1_lbl.config(text=str(r2))
+
     def on_ok(self):
-        try:
-            r1, s1 = self.r1_var.get(), self.s1_var.get()
-            r2, s2 = self.r2_var.get(), self.s2_var.get()
+        r1, s1 = self.r1_var.get(), self.s1_var.get()
+        r2, s2 = self.r2_var.get(), self.s2_var.get()
 
-            for val in (r1, s1, r2, s2):
-                if not (0 <= val <= 255):
-                    messagebox.showerror("Error", "Semua nilai harus di antara 0 - 255!", parent=self)
-                    return
+        if r1 > r2:
+            messagebox.showerror("Error", "Nilai r1 tidak boleh lebih besar dari r2!", parent=self)
+            return
 
-            if r1 > r2:
-                messagebox.showerror("Error", "Syarat r1 ≤ r2 tidak terpenuhi!", parent=self)
-                return
-
-            self.result = (r1, s1, r2, s2)
-            self.destroy()
-        except tk.TclError:
-            messagebox.showerror("Error", "Masukkan nilai integer yang valid!", parent=self)
+        self.result = (r1, s1, r2, s2)
+        self.destroy()
 
 
 class AutoContrastDialog(tk.Toplevel):
@@ -191,36 +221,63 @@ class AutoContrastDialog(tk.Toplevel):
         self.configure(bg=theme["bg_panel"])
         self.result = None
 
-        container = ttk.Frame(self, padding=15)
+        container = ttk.Frame(self, padding=20)
         container.pack(fill="both", expand=True)
 
-        ttk.Label(container, text="Persen Tergelap (a %):").grid(row=0, column=0, padx=5, pady=5, sticky="e")
         self.a_var = tk.DoubleVar(value=1.0)
-        ttk.Spinbox(container, from_=0.0, to=100.0, increment=0.5, textvariable=self.a_var, width=8).grid(row=0, column=1, padx=5, pady=5)
-
-        ttk.Label(container, text="Persen Terterang (b %):").grid(row=1, column=0, padx=5, pady=5, sticky="e")
         self.b_var = tk.DoubleVar(value=99.0)
-        ttk.Spinbox(container, from_=0.0, to=100.0, increment=0.5, textvariable=self.b_var, width=8).grid(row=1, column=1, padx=5, pady=5)
+
+        # Slider Persen Tergelap (a %)
+        ttk.Label(container, text="Potong Persen Tergelap (a %):").grid(row=0, column=0, sticky="w", pady=(0, 2))
+        self.a_lbl = ttk.Label(container, text="1.0%", width=6, anchor="e")
+        self.a_lbl.grid(row=0, column=1, sticky="e", pady=(0, 2))
+        self.a_slider = ttk.Scale(container, from_=0.0, to=100.0, variable=self.a_var, 
+                                  orient='horizontal', length=240, command=self._on_a_change)
+        self.a_slider.grid(row=1, column=0, columnspan=2, pady=(0, 15), sticky="we")
+
+        # Slider Persen Terterang (b %)
+        ttk.Label(container, text="Potong Persen Terterang (b %):").grid(row=2, column=0, sticky="w", pady=(0, 2))
+        self.b_lbl = ttk.Label(container, text="99.0%", width=6, anchor="e")
+        self.b_lbl.grid(row=2, column=1, sticky="e", pady=(0, 2))
+        self.b_slider = ttk.Scale(container, from_=0.0, to=100.0, variable=self.b_var, 
+                                  orient='horizontal', length=240, command=self._on_b_change)
+        self.b_slider.grid(row=3, column=0, columnspan=2, pady=(0, 15), sticky="we")
 
         btn_frame = ttk.Frame(container)
-        btn_frame.grid(row=2, column=0, columnspan=2, pady=(15, 0))
-        ttk.Button(btn_frame, text="OK", command=self.on_ok).pack(side=tk.LEFT, padx=5)
+        btn_frame.grid(row=4, column=0, columnspan=2, pady=(10, 0))
+        ttk.Button(btn_frame, text="Terapkan", command=self.on_ok).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Batal", command=self.destroy).pack(side=tk.LEFT, padx=5)
 
         self.transient(parent)
         self.grab_set()
         parent.wait_window(self)
 
+    def _on_a_change(self, val):
+        a = round(float(val), 1)
+        self.a_lbl.config(text=f"{a}%")
+        if a >= self.b_var.get():
+            new_b = min(100.0, a + 0.1)
+            self.b_var.set(new_b)
+            self.b_lbl.config(text=f"{round(new_b, 1)}%")
+
+    def _on_b_change(self, val):
+        b = round(float(val), 1)
+        self.b_lbl.config(text=f"{b}%")
+        if b <= self.a_var.get():
+            new_a = max(0.0, b - 0.1)
+            self.a_var.set(new_a)
+            self.a_lbl.config(text=f"{round(new_a, 1)}%")
+
     def on_ok(self):
-        try:
-            a, b = float(self.a_var.get()), float(self.b_var.get())
-            if not (0 <= a < b <= 100):
-                messagebox.showerror("Error", "Syarat 0 ≤ a < b ≤ 100 tidak terpenuhi!", parent=self)
-                return
-            self.result = (a, b)
-            self.destroy()
-        except tk.TclError:
-            messagebox.showerror("Error", "Masukkan nilai desimal yang valid!", parent=self)
+        a = round(self.a_var.get(), 1)
+        b = round(self.b_var.get(), 1)
+
+        if a >= b:
+            messagebox.showerror("Error", "Syarat batas tergelap (a) < terterang (b) tidak terpenuhi!", parent=self)
+            return
+
+        self.result = (a, b)
+        self.destroy()
 
 
 # =========================================================================
@@ -350,7 +407,7 @@ class ViewMixin:
             dict(label="Reset to Original", command=self.reset_to_original),
         ])
         
-        # MENU IMAGE BARU (Dilengkapi Contrast Stretching, Log, Power, & Slicing)
+        # MENU IMAGE
         add("Image", [
             dict(label="Negative", command=self.apply_negative),
             dict(label="Grayscale", command=self.apply_grayscale),
