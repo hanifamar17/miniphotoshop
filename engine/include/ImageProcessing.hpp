@@ -30,4 +30,7 @@ namespace mps{
 
     //bit-plane slicing
     void bitPlaneSlicing(Image& img, int k, bool binary = true);
+
+    //perataan histogram (equalization)
+    void equalizeHistogram(Image& img);
 }
