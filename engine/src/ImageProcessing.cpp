@@ -30,7 +30,7 @@ namespace mps{
                 uint8_t g = img.at(row, col, 1);
                 uint8_t b = img.at(row, col, 2);
 
-                double y = 0.299*r + 0.587*g + 0.144*b;
+                double y = 0.299*r + 0.587*g + 0.114*b;
 
                 //clipping
                 if(y < 0){
@@ -207,5 +207,46 @@ namespace mps{
             }
         }
         applyLUT(img, lut);
+    }
+
+    //perataan histogram (equalization)
+    void equalizeHistogram(Image& img){
+        if(img.empty()){
+            return;
+        }
+
+        const int L = 256;
+        const int C = img.channels;
+        const size_t npix = (size_t)img.width * img.height;
+
+        for(int c = 0; c < C; ++c){
+            size_t hist[L] = {0};
+            for(size_t i = 0; i < npix; ++i){
+                hist[img.data[i*C + c]]++;
+            }
+
+            bool flat = false;
+            for(int k = 0; k < L; ++k){
+                if(hist[k] == npix){
+                    flat = true;
+                    break;
+                }
+            }
+
+            if(flat){
+                continue;
+            }
+
+            uint8_t lut[L];
+            size_t cum = 0;
+            for(int k = 0; k < L; ++k){
+                cum += hist[k];
+                lut[k] = (uint8_t)((double)cum / npix * (L - 1) + 0.5);
+            }
+
+            for(size_t i = 0; i < npix; ++i){
+                img.data[i*C + c] = lut[img.data[i*C + c]];
+            }
+        }
     }
 }

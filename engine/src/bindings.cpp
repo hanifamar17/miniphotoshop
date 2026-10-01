@@ -179,6 +179,9 @@ PYBIND11_MODULE(mps_engine, m) {
     }, "Ambil bit-plane ke-k (0=LSB, 7=MSB); binary=True: bit 1->255, bit 0->0; False: nilai kontribusi bit (in-place, return citra yang sama)",
         py::arg("img"), py::arg("k"), py::arg("binary") = true);
 
+    //perataan histogram (equalization)
+    m.def("equalize_histogram", &equalizeHistogram);
+
     //HiSTOGRAM
     py::class_<HistogramData>(m, "HistogramData")
         .def(py::init<>())
