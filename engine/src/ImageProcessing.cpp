@@ -1,4 +1,5 @@
 #include "ImageProcessing.hpp"
+#include "Histogram.hpp"
 #include <cmath>
 
 namespace mps{
@@ -219,15 +220,22 @@ namespace mps{
         const int C = img.channels;
         const size_t npix = (size_t)img.width * img.height;
 
-        for(int c = 0; c < C; ++c){
-            size_t hist[L] = {0};
-            for(size_t i = 0; i < npix; ++i){
-                hist[img.data[i*C + c]]++;
-            }
+        HistogramData hist[3];
+        if(C == 1){
+            hist[0] = computeHistogram(img);
+        }else if(C == 3){
+            ColorHistogramData ch = computeColorHistogram(img);
+            hist[0] = ch.red;
+            hist[1] = ch.green;
+            hist[2] = ch.blue;
+        }else{
+            return;
+        }
 
+        for(int c = 0; c < C; ++c){
             bool flat = false;
             for(int k = 0; k < L; ++k){
-                if(hist[k] == npix){
+                if((size_t)hist[c].counts[k] == npix){
                     flat = true;
                     break;
                 }
@@ -240,7 +248,7 @@ namespace mps{
             uint8_t lut[L];
             size_t cum = 0;
             for(int k = 0; k < L; ++k){
-                cum += hist[k];
+                cum += (size_t)hist[c].counts[k];
                 lut[k] = (uint8_t)((double)cum / npix * (L - 1) + 0.5);
             }
 
