@@ -11,16 +11,28 @@ class PowerTransformDialog(tk.Toplevel):
         self.configure(bg=theme["bg_panel"])
         self.result = None
 
+        # Style khusus agar angka pada Spinbox jelas terbaca
+        style = ttk.Style(self)
+        style.configure("Gamma.TSpinbox",
+                        fieldbackground="#181818", foreground="#ffffff",
+                        arrowcolor="#ffffff", insertcolor="#ffffff")
+
         container = ttk.Frame(self, padding=15)
         container.pack(fill="both", expand=True)
 
         ttk.Label(container, text="Nilai Gamma (γ):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        
+
         self.gamma_var = tk.DoubleVar(value=1.0)
-        self.spinbox = ttk.Spinbox(container, from_=0.1, to=5.0, increment=0.1, textvariable=self.gamma_var, width=8)
+        self.spinbox = ttk.Spinbox(container, from_=0.1, to=5.0, increment=0.1,
+                                   textvariable=self.gamma_var, width=8,
+                                   format="%.1f", style="Gamma.TSpinbox",
+                                   command=self._on_spin)
         self.spinbox.grid(row=0, column=1, padx=5, pady=5)
 
-        self.slider = ttk.Scale(container, from_=0.1, to=5.0, variable=self.gamma_var, orient='horizontal')
+        # Slider langsung berada di bawah row Spinbox
+        self.slider = ttk.Scale(container, from_=0.1, to=5.0, variable=self.gamma_var,
+                                orient='horizontal', length=220,
+                                command=self._on_slide)
         self.slider.grid(row=1, column=0, columnspan=2, padx=5, pady=10, sticky="we")
 
         btn_frame = ttk.Frame(container)
@@ -32,16 +44,26 @@ class PowerTransformDialog(tk.Toplevel):
         self.grab_set()
         parent.wait_window(self)
 
+    def _on_slide(self, val):
+        v = round(float(val), 1)
+        self.gamma_var.set(v)
+
+    def _on_spin(self):
+        try:
+            v = round(float(self.spinbox.get()), 1)
+            self.gamma_var.set(v)
+        except ValueError:
+            pass
+
     def on_ok(self):
         try:
-            val = float(self.gamma_var.get())
+            val = round(float(self.spinbox.get()), 1)
             if val <= 0:
                 raise ValueError
             self.result = val
             self.destroy()
-        except ValueError:
+        except (ValueError, tk.TclError):
             messagebox.showerror("Error", "Nilai Gamma harus angka desimal > 0!", parent=self)
-
 
 class GraySlicingDialog(tk.Toplevel):
     def __init__(self, parent, theme):
@@ -62,7 +84,8 @@ class GraySlicingDialog(tk.Toplevel):
         self.b_var = tk.IntVar(value=150)
         ttk.Spinbox(container, from_=0, to=255, textvariable=self.b_var, width=8).grid(row=1, column=1, padx=5, pady=5)
 
-        self.preserve_var = tk.BooleanFieldVar(value=False)
+        # Diperbaiki: Menggunakan tk.BooleanVar
+        self.preserve_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(container, text="Pertahankan latar (preserve)", variable=self.preserve_var).grid(row=2, column=0, columnspan=2, padx=5, pady=10)
 
         btn_frame = ttk.Frame(container)
@@ -103,7 +126,8 @@ class BitPlaneDialog(tk.Toplevel):
         self.k_var = tk.IntVar(value=7)
         ttk.Spinbox(container, from_=0, to=7, textvariable=self.k_var, width=8).grid(row=0, column=1, padx=5, pady=5)
 
-        self.binary_var = tk.BooleanFieldVar(value=True)
+        # Diperbaiki: Menggunakan tk.BooleanVar
+        self.binary_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(container, text="Tampilkan biner", variable=self.binary_var).grid(row=1, column=0, columnspan=2, padx=5, pady=10)
 
         btn_frame = ttk.Frame(container)
@@ -143,9 +167,10 @@ class ManualContrastDialog(tk.Toplevel):
         self.r2_var = tk.IntVar(value=150)
         self.s2_var = tk.IntVar(value=220)
 
+        # Indikator angka disesuaikan agar jelas terlihat menggunakan tk.Label kontras
         # Slider r1
         ttk.Label(container, text="Titik Input r1:").grid(row=0, column=0, sticky="w", pady=(0, 2))
-        self.r1_lbl = ttk.Label(container, text="50", width=4, anchor="e")
+        self.r1_lbl = tk.Label(container, text="50", width=4, anchor="e", bg=theme["bg_panel"], fg="#4fc3f7", font=("Segoe UI", 10, "bold"))
         self.r1_lbl.grid(row=0, column=2, sticky="e", pady=(0, 2))
         self.r1_slider = ttk.Scale(container, from_=0, to=255, variable=self.r1_var, 
                                    orient='horizontal', length=240, command=self._on_r1_change)
@@ -153,7 +178,7 @@ class ManualContrastDialog(tk.Toplevel):
 
         # Slider r2
         ttk.Label(container, text="Titik Input r2:").grid(row=2, column=0, sticky="w", pady=(0, 2))
-        self.r2_lbl = ttk.Label(container, text="150", width=4, anchor="e")
+        self.r2_lbl = tk.Label(container, text="150", width=4, anchor="e", bg=theme["bg_panel"], fg="#4fc3f7", font=("Segoe UI", 10, "bold"))
         self.r2_lbl.grid(row=2, column=2, sticky="e", pady=(0, 2))
         self.r2_slider = ttk.Scale(container, from_=0, to=255, variable=self.r2_var, 
                                    orient='horizontal', length=240, command=self._on_r2_change)
@@ -164,7 +189,7 @@ class ManualContrastDialog(tk.Toplevel):
 
         # Slider s1
         ttk.Label(container, text="Titik Output s1:").grid(row=5, column=0, sticky="w", pady=(0, 2))
-        self.s1_lbl = ttk.Label(container, text="20", width=4, anchor="e")
+        self.s1_lbl = tk.Label(container, text="20", width=4, anchor="e", bg=theme["bg_panel"], fg="#4fc3f7", font=("Segoe UI", 10, "bold"))
         self.s1_lbl.grid(row=5, column=2, sticky="e", pady=(0, 2))
         self.s1_slider = ttk.Scale(container, from_=0, to=255, variable=self.s1_var, 
                                    orient='horizontal', length=240, command=lambda v: self.s1_lbl.config(text=str(int(float(v)))))
@@ -172,7 +197,7 @@ class ManualContrastDialog(tk.Toplevel):
 
         # Slider s2
         ttk.Label(container, text="Titik Output s2:").grid(row=7, column=0, sticky="w", pady=(0, 2))
-        self.s2_lbl = ttk.Label(container, text="220", width=4, anchor="e")
+        self.s2_lbl = tk.Label(container, text="220", width=4, anchor="e", bg=theme["bg_panel"], fg="#4fc3f7", font=("Segoe UI", 10, "bold"))
         self.s2_lbl.grid(row=7, column=2, sticky="e", pady=(0, 2))
         self.s2_slider = ttk.Scale(container, from_=0, to=255, variable=self.s2_var, 
                                    orient='horizontal', length=240, command=lambda v: self.s2_lbl.config(text=str(int(float(v)))))
@@ -227,9 +252,10 @@ class AutoContrastDialog(tk.Toplevel):
         self.a_var = tk.DoubleVar(value=1.0)
         self.b_var = tk.DoubleVar(value=99.0)
 
+        # Indikator angka disesuaikan dengan warna kontras dan pembatasan desimal
         # Slider Persen Tergelap (a %)
         ttk.Label(container, text="Potong Persen Tergelap (a %):").grid(row=0, column=0, sticky="w", pady=(0, 2))
-        self.a_lbl = ttk.Label(container, text="1.0%", width=6, anchor="e")
+        self.a_lbl = tk.Label(container, text="1.0%", width=6, anchor="e", bg=theme["bg_panel"], fg="#4fc3f7", font=("Segoe UI", 10, "bold"))
         self.a_lbl.grid(row=0, column=1, sticky="e", pady=(0, 2))
         self.a_slider = ttk.Scale(container, from_=0.0, to=100.0, variable=self.a_var, 
                                   orient='horizontal', length=240, command=self._on_a_change)
@@ -237,7 +263,7 @@ class AutoContrastDialog(tk.Toplevel):
 
         # Slider Persen Terterang (b %)
         ttk.Label(container, text="Potong Persen Terterang (b %):").grid(row=2, column=0, sticky="w", pady=(0, 2))
-        self.b_lbl = ttk.Label(container, text="99.0%", width=6, anchor="e")
+        self.b_lbl = tk.Label(container, text="99.0%", width=6, anchor="e", bg=theme["bg_panel"], fg="#4fc3f7", font=("Segoe UI", 10, "bold"))
         self.b_lbl.grid(row=2, column=1, sticky="e", pady=(0, 2))
         self.b_slider = ttk.Scale(container, from_=0.0, to=100.0, variable=self.b_var, 
                                   orient='horizontal', length=240, command=self._on_b_change)
@@ -254,19 +280,21 @@ class AutoContrastDialog(tk.Toplevel):
 
     def _on_a_change(self, val):
         a = round(float(val), 1)
-        self.a_lbl.config(text=f"{a}%")
+        self.a_var.set(a)
+        self.a_lbl.config(text=f"{a:.1f}%")
         if a >= self.b_var.get():
-            new_b = min(100.0, a + 0.1)
+            new_b = min(100.0, round(a + 0.1, 1))
             self.b_var.set(new_b)
-            self.b_lbl.config(text=f"{round(new_b, 1)}%")
+            self.b_lbl.config(text=f"{new_b:.1f}%")
 
     def _on_b_change(self, val):
         b = round(float(val), 1)
-        self.b_lbl.config(text=f"{b}%")
+        self.b_var.set(b)
+        self.b_lbl.config(text=f"{b:.1f}%")
         if b <= self.a_var.get():
-            new_a = max(0.0, b - 0.1)
+            new_a = max(0.0, round(b - 0.1, 1))
             self.a_var.set(new_a)
-            self.a_lbl.config(text=f"{round(new_a, 1)}%")
+            self.a_lbl.config(text=f"{new_a:.1f}%")
 
     def on_ok(self):
         a = round(self.a_var.get(), 1)
@@ -280,9 +308,9 @@ class AutoContrastDialog(tk.Toplevel):
         self.destroy()
 
 
-# =========================================================================
+
 # CLASS VIEWMIXIN
-# =========================================================================
+
 
 class ViewMixin:
     def __init__(self, root):
@@ -407,14 +435,15 @@ class ViewMixin:
             dict(label="Reset to Original", command=self.reset_to_original),
         ])
         
-        # MENU IMAGE
+            # MENU IMAGE
         add("Image", [
-            dict(label="Negative", command=self.apply_negative),
+            dict(label="Negative", command=self.apply_negative), 
             dict(label="Grayscale", command=self.apply_grayscale),
             dict(label="Brightness...", command=self.open_brightening_dialog),
             None,
             dict(label="Manual Contrast Stretching...", command=self.open_manual_contrast_dialog),
             dict(label="Auto Contrast Stretching...", command=self.open_auto_contrast_dialog),
+            dict(label="Histogram Equalization", command=self.apply_equalize),   # <-- BARU
             None,
             dict(label="Log Transformation", command=self.apply_log),
             dict(label="Inverse Log Transformation", command=self.apply_inverse_log),

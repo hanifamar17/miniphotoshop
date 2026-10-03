@@ -7,6 +7,15 @@ import mps_engine
 
 
 class ProcessingMixin:
+    # ---------- HELPER STATUS BAR ----------
+    def set_status(self, text):
+        # Sesuaikan dengan status bar yang sudah ada di aplikasi.
+        # Kalau tidak ada satupun atribut di bawah, tidak melakukan apa-apa.
+        if hasattr(self, "status_var"):
+            self.status_var.set(text)
+        elif hasattr(self, "status_label"):
+            self.status_label.config(text=text)
+
     # ---------- HELPER CLONE IMAGE ----------
     def clone_image(self, img):
         if img is None:
@@ -115,6 +124,18 @@ class ProcessingMixin:
         self.current_image = result
         self.display_image(self.current_image)
         self.update_info()
+
+    # ---------- HISTOGRAM EQUALIZATION ----------
+    def apply_equalize(self):
+        if self.current_image is None:
+            messagebox.showwarning("Peringatan", "Belum ada citra yang dibuka")
+            return
+
+        self.push_undo()  # wajib sebelum operasi; clone_image menyimpan salinan, jadi aman untuk in-place
+        mps_engine.equalize_histogram(self.current_image)  # in-place, tidak return apa-apa
+        self.display_image(self.current_image)
+        self.update_info()
+        self.set_status("Histogram equalization applied")
 
     # ---------- CONTRAST STRETCHING (MANUAL & OTOMATIS) ----------
     def process_manual_contrast(self, r1, s1, r2, s2):
