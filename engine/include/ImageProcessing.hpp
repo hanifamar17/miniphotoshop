@@ -33,4 +33,13 @@ namespace mps{
 
     //perataan histogram (equalization)
     void equalizeHistogram(Image& img);
+
+    //smoothing: mean filter
+    void meanFilter(Image& img, int ksize);
+
+    //smoothing: median filter
+    void medianFilter(Image& img, int ksize);
+
+    //edge detection: sobel
+    void sobelFilter(Image& img, int mode);
 }

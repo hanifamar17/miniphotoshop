@@ -182,6 +182,27 @@ PYBIND11_MODULE(mps_engine, m) {
     //perataan histogram (equalization)
     m.def("equalize_histogram", &equalizeHistogram);
 
+    //smoothing: mean filter
+    m.def("mean_filter", [](Image& img, int ksize){
+        meanFilter(img, ksize);
+        return img;
+    }, "Smoothing mean filter ksize x ksize (in-place, return citra yang sama)",
+       py::arg("img"), py::arg("ksize") = 3);
+
+    //smoothing: median filter
+    m.def("median_filter", [](Image& img, int ksize){
+        medianFilter(img, ksize);
+        return img;
+    }, "Smoothing median filter ksize x ksize (in-place, return citra yang sama)",
+       py::arg("img"), py::arg("ksize") = 3);
+
+    //edge detection: sobel
+    m.def("sobel_filter", [](Image& img, int mode){
+        sobelFilter(img, mode);
+        return img;
+    }, "Deteksi tepi sobel (in-place, return citra yang sama); mode=0: |Gx|+|Gy|, 1: max, 2: akar kuadrat",
+       py::arg("img"), py::arg("mode") = 0);
+
     //HiSTOGRAM
     py::class_<HistogramData>(m, "HistogramData")
         .def(py::init<>())

@@ -1,6 +1,7 @@
 #include "ImageProcessing.hpp"
 #include "Histogram.hpp"
 #include <cmath>
+#include <algorithm>
 
 namespace mps{
 
@@ -232,9 +233,9 @@ namespace mps{
             return;
         }
 
-        for(int c = 0; c < C; ++c){
+        for(int c = 0; c < C; c++){
             bool flat = false;
-            for(int k = 0; k < L; ++k){
+            for(int k = 0; k < L; k++){
                 if((size_t)hist[c].counts[k] == npix){
                     flat = true;
                     break;
@@ -247,13 +248,123 @@ namespace mps{
 
             uint8_t lut[L];
             size_t cum = 0;
-            for(int k = 0; k < L; ++k){
+            for(int k = 0; k < L; k++){
                 cum += (size_t)hist[c].counts[k];
                 lut[k] = (uint8_t)((double)cum / npix * (L - 1) + 0.5);
             }
 
-            for(size_t i = 0; i < npix; ++i){
+            for(size_t i = 0; i < npix; i++){
                 img.data[i*C + c] = lut[img.data[i*C + c]];
+            }
+        }
+    }
+
+    //konvolusi 1 channel
+    static vector<double> convolveChannel(const Image& img, int c, const vector<double>& kernel, int ksize){
+        const int r = ksize/2;
+        vector<double> out((size_t)img.width * img.height);
+
+        for(int row = 0; row < img.height; row++){
+            for(int col = 0; col < img.width; col++){
+                double sum = 0;
+
+                if(row < r || row >= img.height - r || col < r || col >= img.width - r){
+                    sum = img.at(row, col, c);
+                }else{
+                    for(int u = -r; u <= r; u++){
+                        for(int v = -r; v <= r; v++){
+                            sum += kernel[(u + r) * ksize + (v + r)] * img.at(row + u, col + v, c);
+                        }
+                    }
+                }
+                out[(size_t)row * img.width + col] = sum;
+            }
+        }
+        return out;
+    }
+
+    //smoothing: mean filter
+    void meanFilter(Image& img, int ksize){
+        if(img.empty() || ksize < 3 || ksize % 2 == 0){
+            return;
+        }
+
+        vector<double> kernel(ksize * ksize, 1.0 / (ksize * ksize));
+
+        for(int c = 0; c < img.channels; c++){
+            vector<double> out = convolveChannel(img, c, kernel, ksize);
+            for(size_t i = 0; i < out.size(); i++){
+                img.data[i * img.channels + c] = clampToByte(out[i]);
+            }               
+        }
+    }
+
+    //smoothing: median filter
+    void medianFilter(Image& img, int ksize){
+        if(img.empty() || ksize < 3 || ksize % 2 == 0){
+            return;
+        }
+
+        const int r = ksize / 2;
+        const Image src = img;
+        vector<uint8_t> window(ksize * ksize);
+        
+        for(int c = 0; c < img.channels; c++){
+            for(int row = r; row < img.height - r; row++){
+                for(int col = r; col < img.width - r; col++){
+                    size_t k = 0;
+
+                    for(int u = -r; u <= r; u++){
+                        for(int v = -r; v <= r; v++){
+                            window[k++] = src.at(row + u, col + v, c);
+                        }
+                    }
+                    nth_element(window.begin(), window.begin() + window.size() / 2, window.end());
+                    img.at(row, col, c) = window[window.size() / 2];
+                }
+            }
+        }
+    }
+
+    //edge detection: sobel
+    void sobelFilter(Image& img, int mode){
+        if(img.empty() || mode < 0 || mode > 2){
+            return;
+        }
+
+        const vector<double> sx = {
+            -1, 0, 1,
+            -2, 0, 2,
+            -1, 0, 1
+        };
+        const vector<double> sy = {
+            -1, -2, -1,
+             0,  0,  0,
+             1,  2,  1
+        };
+
+        for(int c = 0; c < img.channels; c++){
+            vector<double> gx = convolveChannel(img, c, sx, 3);
+            vector<double> gy = convolveChannel(img, c, sy, 3);
+            for(int row = 0; row < img.height; row++){
+                for(int col = 0; col < img.width; col++){
+                    size_t i = (size_t)row * img.width + col;
+                    double v;
+                    if(row < 1 || row >= img.height - 1 || col < 1 || col >= img.width - 1){
+                        v = 0.0;
+                    }else{
+                        double a = fabs(gx[i]);
+                        double b = fabs(gy[i]);
+                        if(mode == 0){
+                            v = a + b;
+                        }else if(mode == 1){
+                            v = max(a, b);
+                        }else{
+                            v = sqrt(a * a + b * b);
+                        }
+                    }
+                    img.data[i * img.channels + c] = clampToByte(v);
+                }
             }
         }
     }
