@@ -40,7 +40,13 @@ namespace mps{
         fin >> height;
         skipWhitespaceAndComments(fin);
         fin >> maxval;
-        skipWhitespaceAndComments(fin); //handle komentar setelah maxval
+        if(!fin){
+            return false; //gagal baca width/height/maxval
+        }
+
+        if(width <= 0 || height <= 0){
+            return false;
+        }
 
         if(maxval <= 0 || maxval > 255){
             return false; //hanya support 8-bit per channel
@@ -53,14 +59,18 @@ namespace mps{
         }
 
         if(magic == "P6"){
+            fin.get(); //tepat 1 whitespace pemisah, jangan skip lebih
+        
             // binary: baca byte-byte
             fin.read(reinterpret_cast<char*>(img.data.data()), img.data.size());
             if(!fin) return false;
         }else{
+            skipWhitespaceAndComments(fin);
+        
             // ASCII: baca angka-angka 0..255 satu-satu
             for(size_t i = 0; i < img.data.size(); i++){
                 int val;
-                fin>>val;
+                fin >> val;
                 if(!fin) return false;
                 img.data[i] = static_cast<uint8_t>(val);
             }

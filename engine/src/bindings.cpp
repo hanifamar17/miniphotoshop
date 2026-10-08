@@ -189,6 +189,13 @@ PYBIND11_MODULE(mps_engine, m) {
     }, "Smoothing mean filter ksize x ksize (in-place, return citra yang sama)",
        py::arg("img"), py::arg("ksize") = 3);
 
+    //smoothing: gaussian filter
+    m.def("gaussian_filter", [](Image& img, int ksize, double sigma){
+        gaussianFilter(img, ksize, sigma);
+        return img;
+    }, "Gaussian filter (in-place, return citra yang sama)",
+       py::arg("img"), py::arg("ksize") = 3, py::arg("sigma") = 1.0);
+
     //smoothing: median filter
     m.def("median_filter", [](Image& img, int ksize){
         medianFilter(img, ksize);
@@ -200,8 +207,15 @@ PYBIND11_MODULE(mps_engine, m) {
     m.def("sobel_filter", [](Image& img, int mode){
         sobelFilter(img, mode);
         return img;
-    }, "Deteksi tepi sobel (in-place, return citra yang sama); mode=0: |Gx|+|Gy|, 1: max, 2: akar kuadrat",
+    }, "Deteksi tepi sobel (in-place, return citra yang sama); mode=0: |Gx|+|Gy|, 1: max, 2: akar kuadrat, 3: rata-rata",
        py::arg("img"), py::arg("mode") = 0);
+
+    //noise: salt & pepper
+    m.def("add_salt_pepper", [](Image& img, double prob, unsigned int seed){
+        addSaltPepper(img, prob, seed);
+        return img;
+    }, "Tambahkan noise salt & pepper (in-place, return citra yang sama)",
+       py::arg("img"), py::arg("prob") = 0.01, py::arg("seed") = 0);
 
     //HiSTOGRAM
     py::class_<HistogramData>(m, "HistogramData")

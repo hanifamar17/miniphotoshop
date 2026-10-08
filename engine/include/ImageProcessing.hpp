@@ -37,9 +37,15 @@ namespace mps{
     //smoothing: mean filter
     void meanFilter(Image& img, int ksize);
 
+    //smoothing: gaussian filter
+    void gaussianFilter(Image& img, int ksize, double sigma);
+
     //smoothing: median filter
     void medianFilter(Image& img, int ksize);
 
     //edge detection: sobel
     void sobelFilter(Image& img, int mode);
+
+    //noise: salt & pepper
+    void addSaltPepper(Image& img, double prob, unsigned int seed);
 }

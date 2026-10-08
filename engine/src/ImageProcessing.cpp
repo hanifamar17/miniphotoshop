@@ -2,6 +2,7 @@
 #include "Histogram.hpp"
 #include <cmath>
 #include <algorithm>
+#include <random>
 
 namespace mps{
 
@@ -267,20 +268,45 @@ namespace mps{
         for(int row = 0; row < img.height; row++){
             for(int col = 0; col < img.width; col++){
                 double sum = 0;
-
-                if(row < r || row >= img.height - r || col < r || col >= img.width - r){
-                    sum = img.at(row, col, c);
-                }else{
-                    for(int u = -r; u <= r; u++){
-                        for(int v = -r; v <= r; v++){
-                            sum += kernel[(u + r) * ksize + (v + r)] * img.at(row + u, col + v, c);
-                        }
+                for(int u = -r; u <= r; u++){
+                    int rr = min(max(row + u, 0), img.height - 1);
+                    for(int v = -r; v <= r; v++){
+                        int cc = min(max(col + v, 0), img.width - 1);
+                        sum += kernel[(u + r) * ksize + (v + r)] * img.at(rr, cc, c);
                     }
                 }
                 out[(size_t)row * img.width + col] = sum;
             }
         }
         return out;
+    }
+
+    //gaussian kernel
+    static vector<double> makeGaussianKernel(int ksize, double sigma){
+        const int r = ksize / 2;
+        vector<double> kernel((size_t)ksize * ksize);
+        double sum = 0;
+
+        for(int u = -r; u <= r; u++){
+            for(int v = -r; v <= r; v++){
+                double val = exp(-(u * u + v * v) / (2.0 * sigma * sigma));
+                kernel[(u + r) * ksize + (v + r)] = val;
+                sum += val;
+            }
+        }
+        for(size_t i = 0; i < kernel.size(); i++){
+                kernel[i] /= sum;
+        }
+        return kernel;
+    }
+
+    static void applyKernel(Image& img, const vector<double>& kernel, int ksize){
+        for(int c = 0; c < img.channels; c++){
+            vector<double> out = convolveChannel(img, c, kernel, ksize);
+            for(size_t i = 0; i < out.size(); i++){
+                img.data[i * img.channels + c] = clampToByte(out[i]);
+            }               
+        }
     }
 
     //smoothing: mean filter
@@ -291,12 +317,15 @@ namespace mps{
 
         vector<double> kernel(ksize * ksize, 1.0 / (ksize * ksize));
 
-        for(int c = 0; c < img.channels; c++){
-            vector<double> out = convolveChannel(img, c, kernel, ksize);
-            for(size_t i = 0; i < out.size(); i++){
-                img.data[i * img.channels + c] = clampToByte(out[i]);
-            }               
+        applyKernel(img, kernel, ksize);
+    }
+
+    //smoothing: gaussian filter
+    void gaussianFilter(Image& img, int ksize, double sigma){
+        if(img.empty() || ksize < 3 || ksize % 2 == 0 || sigma <= 0.0){
+            return;
         }
+        applyKernel(img, makeGaussianKernel(ksize, sigma), ksize);
     }
 
     //smoothing: median filter
@@ -327,8 +356,9 @@ namespace mps{
     }
 
     //edge detection: sobel
+    //mode 0: |Gx|+|Gy|, 1: max(|Gx|,|Gy|), 2: sqrt(Gx^2+Gy^2), 3: (|Gx|+|Gy|)/2
     void sobelFilter(Image& img, int mode){
-        if(img.empty() || mode < 0 || mode > 2){
+        if(img.empty() || mode < 0 || mode > 3){
             return;
         }
 
@@ -338,9 +368,9 @@ namespace mps{
             -1, 0, 1
         };
         const vector<double> sy = {
-            -1, -2, -1,
-             0,  0,  0,
-             1,  2,  1
+            1, 2, 1,
+            0, 0, 0,
+            -1, -2, -1
         };
 
         for(int c = 0; c < img.channels; c++){
@@ -359,11 +389,38 @@ namespace mps{
                             v = a + b;
                         }else if(mode == 1){
                             v = max(a, b);
-                        }else{
+                        }else if(mode == 2){
                             v = sqrt(a * a + b * b);
+                        }else{
+                            v = (a + b) / 2.0;
                         }
                     }
                     img.data[i * img.channels + c] = clampToByte(v);
+                }
+            }
+        }
+    }
+
+    //noise: salt & pepper
+    void addSaltPepper(Image& img, double prob, unsigned int seed){
+        if(img.empty() || prob <= 0.0){
+            return;
+        }
+        if(prob > 1.0){
+            prob = 1.0;
+        }
+
+        mt19937 rng(seed);
+        uniform_real_distribution<double> dist(0.0, 1.0);
+
+        for(int row = 0; row < img.height; row++){
+            for(int col = 0; col < img.width; col++){
+                double p = dist(rng);
+                if(p < prob){
+                    uint8_t val = (p < prob / 2.0) ? 0 : 255;
+                    for(int c = 0; c < img.channels; c++){
+                        img.at(row, col, c) = val;
+                    }
                 }
             }
         }
