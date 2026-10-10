@@ -221,6 +221,44 @@ class ProcessingMixin:
         except ValueError as e:
             messagebox.showerror("Error Engine", str(e))
 
+    # ---------- FILTER ENGINE (NOISE, SMOOTHING, TEPI) ----------
+    # Dipakai dialog preview di view.py. Semuanya fungsi murni: menerima citra,
+    # mengembalikan citra hasil, TIDAK menyentuh current_image / undo / Tkinter,
+    # jadi aman dipanggil dari thread. Engine yang in-place maupun yang return
+    # citra baru sama-sama ditangani. Caller wajib clone_image() dulu.
+    # Kalau nama/argumen di mps_engine berbeda, ubah di blok ini saja.
+    @staticmethod
+    def _engine_fn(*names):
+        for n in names:
+            fn = getattr(mps_engine, n, None)
+            if fn is not None:
+                return fn
+        raise AttributeError("mps_engine tidak punya: " + " / ".join(names))
+
+    @staticmethod
+    def _engine_result(img, out):
+        return img if out is None else out
+
+    def filter_salt_pepper(self, img, prob, seed):
+        fn = self._engine_fn("add_salt_pepper")
+        return self._engine_result(img, fn(img, prob, seed))
+
+    def filter_mean(self, img, ksize):
+        fn = self._engine_fn("mean_filter", "mean_blur")
+        return self._engine_result(img, fn(img, ksize))
+
+    def filter_median(self, img, ksize):
+        fn = self._engine_fn("median_filter")
+        return self._engine_result(img, fn(img, ksize))
+
+    def filter_gaussian(self, img, ksize, sigma):
+        fn = self._engine_fn("gaussian_filter")
+        return self._engine_result(img, fn(img, ksize, sigma))
+
+    def filter_sobel(self, img, mode):
+        fn = self._engine_fn("sobel", "sobel_edge", "sobel_edge_detection", "sobel_filter")
+        return self._engine_result(img, fn(img, mode))
+
     # ---------- BRIGHTENING DIALOG (SLIDER + PREVIEW) ----------
     def open_brightening_dialog(self):
         if self.current_image is None:
