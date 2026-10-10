@@ -1,5 +1,10 @@
+import queue
+import random
+import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
+
+import mps_engine
 from histogram_view import HistogramPanel
 
 
@@ -309,6 +314,427 @@ class AutoContrastDialog(tk.Toplevel):
 
 
 
+# =============================================================================
+# ADAPTER ENGINE  --  kalau nama/urutan argumen di mps_engine berbeda,
+# CUKUP UBAH BAGIAN INI.
+# Engine boleh in-place (return None) atau return citra baru; dua-duanya ditangani.
+# =============================================================================
+def _engine_fn(*names):
+    for n in names:
+        fn = getattr(mps_engine, n, None)
+        if fn is not None:
+            return fn
+    raise AttributeError("mps_engine tidak punya: " + " / ".join(names))
+
+
+def _result(img, out):
+    return img if out is None else out
+
+
+def run_salt_pepper(img, prob, seed):
+    return _result(img, _engine_fn("add_salt_pepper")(img, prob, seed))
+
+
+def run_mean(img, ksize):
+    return _result(img, _engine_fn("mean_filter", "mean_blur")(img, ksize))
+
+
+def run_median(img, ksize):
+    return _result(img, _engine_fn("median_filter")(img, ksize))
+
+
+def run_gaussian(img, ksize, sigma):
+    return _result(img, _engine_fn("gaussian_filter")(img, ksize, sigma))
+
+
+def run_sobel(img, mode):
+    return _result(img, _engine_fn("sobel", "sobel_edge", "sobel_edge_detection",
+                                   "sobel_filter")(img, mode))
+
+
+# =============================================================================
+# BASE DIALOG
+# =============================================================================
+class PreviewDialog(tk.Toplevel):
+    TITLE = ""
+    APPLIED_MSG = ""
+    DEBOUNCE_MS = 150
+    WINDOW_SIZES = ("3", "5", "7", "9", "11")
+
+    def __init__(self, app):
+        super().__init__(app.root)
+        self.app = app
+        self.title(self.TITLE)
+        self.resizable(False, False)
+        self.configure(bg=app.bg_panel)
+
+        ttk.Style(self).configure("Hint.TLabel", foreground=app.fg_dim)
+
+        # Citra asli saat dialog dibuka. Semua preview berasal dari sini.
+        self.base = app.clone_image(app.current_image)
+
+        self._token = 0
+        self._after_id = None
+        self._queue = queue.Queue()
+        self._polling = False
+        self._result = None
+        self._ready = False
+        self._closed = False
+
+        outer = ttk.Frame(self, padding=15)
+        outer.pack(fill="both", expand=True)
+
+        self.controls = ttk.Frame(outer)
+        self.controls.pack(fill="x")
+        self.build_controls(self.controls)
+
+        self.busy_var = tk.StringVar(value="")
+        ttk.Label(outer, textvariable=self.busy_var, style="Hint.TLabel",
+                  wraplength=280).pack(anchor="w", pady=(10, 0))
+
+        btns = ttk.Frame(outer)
+        btns.pack(pady=(10, 0))
+        self.btn_apply = ttk.Button(btns, text="Terapkan", command=self.on_apply)
+        self.btn_apply.pack(side=tk.LEFT, padx=5)
+        ttk.Button(btns, text="Batal", command=self.on_cancel).pack(side=tk.LEFT, padx=5)
+        self.btn_apply.state(["disabled"])
+
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+        self.bind("<Escape>", lambda e: self.on_cancel())
+        # Cegah shortcut global (undo/redo/open/save) saat dialog terbuka.
+        for seq in ("<Control-z>", "<Control-Shift-Y>", "<Control-Shift-y>",
+                    "<Control-o>", "<Control-s>"):
+            self.bind(seq, lambda e: "break")
+
+        self.transient(app.root)
+        try:
+            self.wait_visibility()
+            self.grab_set()
+        except tk.TclError:
+            pass
+
+        self.request_preview(delay=0)   # preview langsung pakai nilai default
+
+    # ----- diisi subclass -----
+    def build_controls(self, parent):
+        raise NotImplementedError
+
+    def get_params(self):
+        raise NotImplementedError
+
+    def compute(self, img, params):
+        raise NotImplementedError
+
+    # ----- helper UI -----
+    def add_hint(self, parent, text):
+        ttk.Label(parent, text=text, style="Hint.TLabel",
+                  wraplength=280, justify="left").pack(anchor="w", pady=(8, 0))
+
+    def add_ksize_combo(self, parent, default):
+        self.ksize_var = tk.StringVar(value=str(default))
+        self.ksize_lbl = ttk.Label(parent, text="")
+        self.ksize_lbl.pack(anchor="w")
+        box = ttk.Combobox(parent, textvariable=self.ksize_var, values=self.WINDOW_SIZES,
+                           state="readonly", width=6)
+        box.pack(anchor="w", pady=(2, 0))
+        box.bind("<<ComboboxSelected>>", lambda e: self._on_ksize())
+        self._refresh_ksize_label()
+
+    def _refresh_ksize_label(self):
+        k = int(self.ksize_var.get())
+        self.ksize_lbl.config(text=f"Ukuran jendela: {k} × {k}")
+
+    def _on_ksize(self):
+        self._refresh_ksize_label()
+        self.request_preview(delay=0)
+
+    @property
+    def ksize(self):
+        return int(self.ksize_var.get())
+
+    # ----- mesin preview -----
+    def request_preview(self, delay=None):
+        if self._closed:
+            return
+        if delay is None:
+            delay = self.DEBOUNCE_MS
+        self._token += 1                     # hasil job lama jadi usang
+        self._ready = False
+        self.btn_apply.state(["disabled"])
+        self.busy_var.set("Memproses...")
+        if self._after_id is not None:
+            self.after_cancel(self._after_id)
+        self._after_id = self.after(delay, self._start_job)
+
+    def _start_job(self):
+        self._after_id = None
+        if self._closed:
+            return
+        token = self._token
+        params = self.get_params()                  # dibaca di thread utama
+        img = self.app.clone_image(self.base)       # selalu dari citra asli
+
+        def work():
+            try:
+                out = self.compute(img, params)
+                self._queue.put((token, out, None))
+            except Exception as e:                  # noqa: BLE001
+                self._queue.put((token, None, e))
+
+        threading.Thread(target=work, daemon=True).start()
+        if not self._polling:
+            self._polling = True
+            self._poll()
+
+    def _poll(self):
+        if self._closed:
+            self._polling = False
+            return
+        try:
+            while True:
+                token, out, err = self._queue.get_nowait()
+                if token != self._token:
+                    continue                        # hasil usang, abaikan
+                self._finish(out, err)
+        except queue.Empty:
+            pass
+        if self._ready:
+            self._polling = False
+        else:
+            self.after(30, self._poll)
+
+    def _finish(self, out, err):
+        if err is not None:
+            self.busy_var.set(f"Gagal: {err}")
+            return
+        self._result = out
+        self._ready = True
+        self.busy_var.set("")
+        self.app.display_image(out)
+        self.btn_apply.state(["!disabled"])
+
+    # ----- tombol -----
+    def _close(self):
+        self._closed = True
+        self._token += 1
+        if self._after_id is not None:
+            self.after_cancel(self._after_id)
+            self._after_id = None
+        try:
+            self.grab_release()
+        except tk.TclError:
+            pass
+        self.destroy()
+
+    def on_apply(self):
+        if not self._ready or self._closed:
+            return
+        app, result = self.app, self._result
+        self._close()
+        app.push_undo()                  # menyimpan citra asli + kosongkan redo_stack
+        app.current_image = result
+        app.display_image(result)
+        app.update_info()
+        app.set_status(self.APPLIED_MSG)
+
+    def on_cancel(self):
+        self._close()
+        self.app.display_image(self.app.current_image)   # kembali ke citra asli
+
+
+# =============================================================================
+# DIALOG: SALT & PEPPER
+# =============================================================================
+class SaltPepperDialog(PreviewDialog):
+    TITLE = "Salt & Pepper Noise"
+    APPLIED_MSG = "Salt & pepper noise applied"
+
+    def build_controls(self, parent):
+        self.seed = random.randrange(1, 2 ** 31)      # tetap selama dialog terbuka
+        self.pct_var = tk.DoubleVar(value=10)
+        self.pct_lbl = ttk.Label(parent, text="Probabilitas: 10%")
+        self.pct_lbl.pack(anchor="w")
+        ttk.Scale(parent, from_=1, to=50, variable=self.pct_var, orient="horizontal",
+                  length=240, command=self._on_slide).pack(anchor="w", pady=(2, 0))
+        ttk.Button(parent, text="Acak ulang", command=self._reseed).pack(anchor="w", pady=(10, 0))
+
+    def _pct(self):
+        return int(round(self.pct_var.get()))
+
+    def _on_slide(self, _val):
+        self.pct_lbl.config(text=f"Probabilitas: {self._pct()}%")
+        self.request_preview()
+
+    def _reseed(self):
+        self.seed = random.randrange(1, 2 ** 31)
+        self.request_preview(delay=0)
+
+    def get_params(self):
+        return self._pct() / 100.0, self.seed
+
+    def compute(self, img, params):
+        prob, seed = params
+        return run_salt_pepper(img, prob, seed)
+
+
+# =============================================================================
+# DIALOG: MEAN / MEDIAN
+# =============================================================================
+class MeanDialog(PreviewDialog):
+    TITLE = "Mean Filter"
+    APPLIED_MSG = "Mean filter applied"
+    HINT = "Mean = menghaluskan."
+
+    def build_controls(self, parent):
+        self.add_ksize_combo(parent, 3)
+        self.add_hint(parent, self.HINT)
+
+    def get_params(self):
+        return self.ksize
+
+    def compute(self, img, k):
+        return run_mean(img, k)
+
+
+class MedianDialog(MeanDialog):
+    TITLE = "Median Filter"
+    APPLIED_MSG = "Median filter applied"
+    HINT = "Median = hilangkan noise bintik (salt & pepper)."
+
+    def compute(self, img, k):
+        return run_median(img, k)
+
+
+# =============================================================================
+# DIALOG: GAUSSIAN
+# =============================================================================
+class GaussianDialog(PreviewDialog):
+    TITLE = "Gaussian Filter"
+    APPLIED_MSG = "Gaussian filter applied"
+
+    def build_controls(self, parent):
+        self.add_ksize_combo(parent, 5)
+        self.sigma_var = tk.DoubleVar(value=1.0)
+        self.sigma_lbl = ttk.Label(parent, text="Sigma: 1.0")
+        self.sigma_lbl.pack(anchor="w", pady=(10, 0))
+        ttk.Scale(parent, from_=0.5, to=3.0, variable=self.sigma_var, orient="horizontal",
+                  length=240, command=self._on_sigma).pack(anchor="w", pady=(2, 0))
+        self.add_hint(parent, "Seperti Mean, tapi piksel tengah berbobot lebih besar. "
+                              "Sigma besar = lebih buram.")
+
+    def _sigma(self):
+        return round(self.sigma_var.get(), 1)
+
+    def _on_sigma(self, _val):
+        self.sigma_lbl.config(text=f"Sigma: {self._sigma():.1f}")
+        self.request_preview()
+
+    def get_params(self):
+        return self.ksize, self._sigma()
+
+    def compute(self, img, params):
+        k, sigma = params
+        return run_gaussian(img, k, sigma)
+
+
+# =============================================================================
+# DIALOG: SOBEL
+# =============================================================================
+class SobelDialog(PreviewDialog):
+    TITLE = "Sobel Edge Detection"
+    APPLIED_MSG = "Sobel edge detection applied"
+    METHODS = ("0 — |Gx| + |Gy|", "1 — Maksimum", "2 — Akar kuadrat", "3 — Rata-rata")
+
+    def build_controls(self, parent):
+        ttk.Label(parent, text="Metode gabungan:").pack(anchor="w")
+        self.mode_box = ttk.Combobox(parent, values=self.METHODS, state="readonly", width=24)
+        self.mode_box.current(0)                      # preview langsung mode 0
+        self.mode_box.pack(anchor="w", pady=(2, 0))
+        self.mode_box.bind("<<ComboboxSelected>>", lambda e: self.request_preview(delay=0))
+
+    def get_params(self):
+        return self.mode_box.current()                # indeks = nilai argumen mode
+
+    def compute(self, img, mode):
+        return run_sobel(img, mode)
+
+
+# =============================================================================
+# PINTU MASUK (dipanggil dari view.py)
+# =============================================================================
+def _need_image(app):
+    if app.current_image is None:
+        messagebox.showwarning("Peringatan", "Belum ada citra yang dibuka")
+        return False
+    return True
+
+
+def open_salt_pepper(app):
+    if _need_image(app):
+        SaltPepperDialog(app)
+
+
+def open_mean(app):
+    if _need_image(app):
+        MeanDialog(app)
+
+
+def open_median(app):
+    if _need_image(app):
+        MedianDialog(app)
+
+
+def open_gaussian(app):
+    if _need_image(app):
+        GaussianDialog(app)
+
+
+def _ask_sobel_rgb(app):
+    """True = konversi dulu, False = lanjut apa adanya, None = batal."""
+    win = tk.Toplevel(app.root)
+    win.title("Sobel")
+    win.resizable(False, False)
+    win.configure(bg=app.bg_panel)
+    choice = {"v": None}
+
+    def pick(v):
+        choice["v"] = v
+        win.destroy()
+
+    body = ttk.Frame(win, padding=15)
+    body.pack()
+    ttk.Label(body, text="Sobel bekerja per kanal.\nUbah ke grayscale dulu?",
+              justify="left").pack(anchor="w")
+    row = ttk.Frame(body)
+    row.pack(pady=(12, 0))
+    ttk.Button(row, text="Konversi dulu", command=lambda: pick(True)).pack(side=tk.LEFT, padx=5)
+    ttk.Button(row, text="Lanjut", command=lambda: pick(False)).pack(side=tk.LEFT, padx=5)
+
+    win.protocol("WM_DELETE_WINDOW", lambda: pick(None))   # X = batal
+    win.transient(app.root)
+    try:
+        win.wait_visibility()
+        win.grab_set()
+    except tk.TclError:
+        pass
+    app.root.wait_window(win)
+    return choice["v"]
+
+
+def open_sobel(app):
+    if not _need_image(app):
+        return
+    if app.current_image.channels == 3:
+        choice = _ask_sobel_rgb(app)
+        if choice is None:
+            return
+        if choice:
+            app.apply_grayscale()                       # sudah push_undo + display
+            if app.current_image.channels == 3:         # konversi gagal
+                return
+    SobelDialog(app)
+
+
 # CLASS VIEWMIXIN
 
 
@@ -443,7 +869,7 @@ class ViewMixin:
             None,
             dict(label="Manual Contrast Stretching...", command=self.open_manual_contrast_dialog),
             dict(label="Auto Contrast Stretching...", command=self.open_auto_contrast_dialog),
-            dict(label="Histogram Equalization", command=self.apply_equalize),   # <-- BARU
+            dict(label="Histogram Equalization", command=self.apply_equalize),  
             None,
             dict(label="Log Transformation", command=self.apply_log),
             dict(label="Inverse Log Transformation", command=self.apply_inverse_log),
@@ -451,6 +877,12 @@ class ViewMixin:
             None,
             dict(label="Gray-level Slicing...", command=self.open_gray_slicing_dialog),
             dict(label="Bit-plane Slicing...", command=self.open_bit_plane_dialog),
+            None,
+            dict(label="Salt & Pepper Noise...", command=self.open_salt_pepper_dialog),
+            dict(label="Mean Filter...", command=self.open_mean_dialog),
+            dict(label="Gaussian Filter...", command=self.open_gaussian_dialog),
+            dict(label="Median Filter...", command=self.open_median_dialog),
+            dict(label="Sobel Edge Detection...", command=self.open_sobel_dialog),
         ])
         
         add("View", [
@@ -520,6 +952,22 @@ class ViewMixin:
         if dialog.result is not None and hasattr(self, 'process_auto_contrast'):
             a, b = dialog.result
             self.process_auto_contrast(a, b)
+
+    # ---------- DIALOG FILTER (preview langsung, kelas dialog ada di atas) ----------
+    def open_salt_pepper_dialog(self):
+        open_salt_pepper(self)
+
+    def open_mean_dialog(self):
+        open_mean(self)
+
+    def open_gaussian_dialog(self):
+        open_gaussian(self)
+
+    def open_median_dialog(self):
+        open_median(self)
+
+    def open_sobel_dialog(self):
+        open_sobel(self)
 
     def _build_layout(self):
         # Body
